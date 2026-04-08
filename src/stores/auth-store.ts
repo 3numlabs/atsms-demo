@@ -6,6 +6,8 @@ interface AuthState {
   isAuthenticated: boolean;
   did: string | null;
   handle: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
   endpointCert: ATSMSEndpointCertificate | null;
   isInitializing: boolean;
 
@@ -14,6 +16,7 @@ interface AuthState {
     handle: string,
     cert: ATSMSEndpointCertificate,
   ) => void;
+  setProfile: (displayName: string | null, avatarUrl: string | null) => void;
   setInitializing: (v: boolean) => void;
   logout: () => void;
 }
@@ -22,6 +25,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   did: null,
   handle: null,
+  displayName: null,
+  avatarUrl: null,
   endpointCert: null,
   isInitializing: false,
 
@@ -34,6 +39,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       isInitializing: false,
     }),
 
+  setProfile: (displayName, avatarUrl) =>
+    set({ displayName, avatarUrl }),
+
   setInitializing: (v) => set({ isInitializing: v }),
 
   logout: () => {
@@ -42,6 +50,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: false,
       did: null,
       handle: null,
+      displayName: null,
+      avatarUrl: null,
       endpointCert: null,
       isInitializing: false,
     });

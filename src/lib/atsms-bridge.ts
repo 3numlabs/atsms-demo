@@ -370,3 +370,21 @@ export async function getDMConvoId(
   if (!currentDid) throw new Error("Not initialized");
   return generateDMConvoId(currentDid, otherDid);
 }
+
+export async function fetchProfile(
+  didOrHandle: string,
+): Promise<{ displayName: string | null; avatarUrl: string | null }> {
+  try {
+    const res = await fetch(
+      `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(didOrHandle)}`,
+    );
+    if (!res.ok) return { displayName: null, avatarUrl: null };
+    const data = await res.json();
+    return {
+      displayName: data.displayName || null,
+      avatarUrl: data.avatar || null,
+    };
+  } catch {
+    return { displayName: null, avatarUrl: null };
+  }
+}

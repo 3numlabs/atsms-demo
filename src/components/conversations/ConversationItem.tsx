@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import type { AppConversation } from "@/types";
 import { Avatar } from "@/components/ui/Avatar";
+import { useProfileStore } from "@/stores/profile-store";
 
 interface ConversationItemProps {
   conversation: AppConversation;
@@ -36,14 +38,27 @@ export function ConversationItem({
   onClick,
   currentDid,
 }: ConversationItemProps) {
-  // Show the other participant's handle (not yourself)
+  const fetchProfileByDid = useProfileStore((s) => s.fetchProfileByDid);
+  const profiles = useProfileStore((s) => s.profiles);
+
+  // Find the other participant
   const otherIdx = conversation.participantDids.findIndex(
     (d) => d !== currentDid,
   );
-  const displayName =
+  const otherDid = otherIdx >= 0 ? conversation.participantDids[otherIdx] : null;
+  const otherHandle =
     otherIdx >= 0
       ? conversation.participantHandles[otherIdx]
       : conversation.participantHandles[0] || "Unknown";
+
+  const profile = otherDid ? profiles[otherDid] : undefined;
+
+  // Fetch profile for the other participant
+  useEffect(() => {
+    if (otherDid) fetchProfileByDid(otherDid);
+  }, [otherDid, fetchProfileByDid]);
+
+  const displayLabel = profile?.displayName || otherHandle;
 
   return (
     <button
@@ -54,29 +69,29 @@ export function ConversationItem({
           : "text-text-secondary hover:bg-sidebar-hover"
       }`}
     >
-      <Avatar name={displayName} size={32} />
+      <Avatar name={otherHandle} size={32} imageUrl={profile?.avatarUrl} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <span
             className={`text-sm truncate ${isActive ? "font-semibold text-text-primary" : "font-medium"}`}
           >
-            @{displayName}
+            {displayLabel}
           </span>
           <span className="text-xs text-text-secondary shrink-0 ml-2">
             {formatTime(conversation.lastMessageAt)}
           </span>
         </div>
+        {profile?.displayName && (
+          <p className="text-xs text-text-secondary truncate mt-0.5">
+            @{otherHandle}
+          </p>
+        )}
         {conversation.lastMessage && (
           <p className="text-xs text-text-secondary truncate mt-0.5">
             {conversation.lastMessage}
           </p>
         )}
       </div>
-      {conversation.unreadCount > 0 && (
-        <span className="bg-accent text-white text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0">
-          {conversation.unreadCount}
-        </span>
-      )}
     </button>
   );
 }

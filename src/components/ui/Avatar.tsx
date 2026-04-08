@@ -15,10 +15,22 @@ function hashString(str: string): number {
 interface AvatarProps {
   name: string;
   size?: number;
+  imageUrl?: string | null;
   className?: string;
 }
 
-export function Avatar({ name, size = 36, className = "" }: AvatarProps) {
+export function Avatar({ name, size = 36, imageUrl, className = "" }: AvatarProps) {
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        className={`rounded-lg object-cover shrink-0 ${className}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
   const color = COLORS[hashString(name) % COLORS.length];
   const initial = name.startsWith("@") ? name[1] : name[0];
 
