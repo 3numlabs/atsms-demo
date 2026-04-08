@@ -10,7 +10,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 
 ## Commands
 - `bun install` - install dependencies
-- `bun run dev` - start dev server
+- `bun run dev` - start dev server (serves on 127.0.0.1 for OAuth loopback)
 - `bun run build` - production build (output: `dist/`)
 - `bun run preview` - preview production build
 
@@ -20,18 +20,27 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - OAuth client metadata: `public/client-metadata.json`
 
 ## Architecture
-- `src/lib/` - core logic (OAuth, passkey-PRF, atsms bridge, constants)
-- `src/stores/` - Zustand stores (auth, conversations, messages, UI)
-- `src/components/` - React components (layout, onboarding, conversations, messages, ui primitives)
-- `src/pages/` - route pages (Login, Callback, Chat)
+- `src/lib/` - core logic (OAuth, passkey-PRF, atsms bridge, WebRTC manager, constants)
+- `src/stores/` - Zustand stores (auth, conversations, messages, UI, calls, profiles)
+- `src/components/` - React components (layout, onboarding, conversations, messages, call, ui primitives)
+- `src/pages/` - route pages (Login, Chat)
 
 ## Key Design Decisions
-- Passkey-PRF required for key derivation (no fallback)
+- Passkey-PRF required for key derivation (no fallback; mocked on localhost)
 - No message persistence across sessions (IndexedDB is session-scoped)
 - Dark mode only (Slack-inspired palette)
 - Library changes: `generateWithKey()` added to `ATSMSEndpointCertificate` in atsms-lib
+- WebRTC signaling via E2E encrypted ATSMS messages (contentType: "atsms/webrtc")
+- WebRTC manager is imperative (module-level RTCPeerConnection, not in Zustand)
 
 ## Phases
-- Phase 1: Onboarding + DM (current)
-- Phase 2: Video/audio calls (WebRTC)
+- Phase 1: Onboarding + DM (done)
+- Phase 2: Video/audio calls via WebRTC (done)
 - Phase 3: Group chats
+
+## TODOs
+- Enable IndexedDB persistence for messages and sync state (lastSyncRev). This will eliminate the need for the localStorage sync seq workaround in atsms-bridge.ts.
+- Remove localStorage `atsms_last_sync_seq` seeding once IndexedDB persists across sessions.
+- Remove debug logging from webrtc-manager.ts once calling is stable.
+- Add real passkey-PRF support for production (currently mocked on localhost).
+- Deploy to demo.atsms.at via Cloudflare Pages.

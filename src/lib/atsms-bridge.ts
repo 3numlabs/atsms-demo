@@ -217,6 +217,15 @@ async function setupStorageManager(
     atsmsClient: client,
   });
 
+  // TODO: Remove this localStorage sync rev seeding once we persist IndexedDB
+  // across sessions. Without persistence, IndexedDB starts fresh each session
+  // and syncMessages replays all messages from seq 0. This seeds the last known
+  // seq from localStorage so we only fetch new messages.
+  const savedSeq = localStorage.getItem("atsms_last_sync_seq");
+  if (savedSeq) {
+    await storage.setLastSyncRev(savedSeq);
+  }
+
   await storageManager.saveDid(did, handle, endpointCert);
   await storageManager.startTransport(did);
 }
@@ -224,6 +233,7 @@ async function setupStorageManager(
 export async function connectWebSocket(
   onMessage: (msg: AppMessage) => void,
   onConversationUpdate: (convoId: string) => void,
+  onWebRTCMessage?: (localMsg: { senderId: string; content: string; convoId: string }) => void,
 ): Promise<void> {
   if (!storageManager || !currentEndpointCert) {
     throw new Error("Storage manager not initialized");
@@ -246,6 +256,17 @@ export async function connectWebSocket(
 
   // Subscribe to new messages
   storageManager.messageAdded$.subscribe(async (localMsg) => {
+    // Route WebRTC signaling messages separately
+    if (localMsg.contentType === "atsms/webrtc") {
+      onWebRTCMessage?.({
+        senderId: localMsg.senderId,
+        content: localMsg.content,
+        convoId: localMsg.convoId,
+      });
+
+      return;
+    }
+
     const senderHandle = await resolveHandleFromDid(localMsg.senderId);
     let text = "";
     try {
@@ -276,6 +297,14 @@ export async function connectWebSocket(
 export async function syncMessages(): Promise<void> {
   if (!storageManager || !currentEndpointCert) return;
   await storageManager.syncMessages(currentEndpointCert);
+
+  // TODO: Remove once IndexedDB persistence is enabled — the library
+  // will track lastSyncRev in IndexedDB automatically.
+  const storage = storageManager.getStorage();
+  const latestRev = await storage.getLastSyncRev();
+  if (latestRev) {
+    localStorage.setItem("atsms_last_sync_seq", latestRev);
+  }
 }
 
 export async function sendDM(
@@ -304,6 +333,9 @@ export async function getConversationMessages(
   const appMessages: AppMessage[] = [];
 
   for (const msg of messages) {
+    // Skip WebRTC signaling messages — they're not chat content
+    if (msg.contentType === "atsms/webrtc") continue;
+
     const senderHandle = await resolveHandleFromDid(msg.senderId);
     let text = "";
     try {

@@ -4,6 +4,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useMessageStore } from "@/stores/message-store";
 import { connectWebSocket, syncMessages } from "@/lib/atsms-bridge";
+import { handleSignalingMessage } from "@/lib/webrtc-manager";
+import { CallOverlay } from "@/components/call/CallOverlay";
+import { IncomingCallModal } from "@/components/call/IncomingCallModal";
 
 export function ChatPage() {
   const did = useAuthStore((s) => s.did);
@@ -17,7 +20,6 @@ export function ChatPage() {
 
     async function init() {
       try {
-        // Connect WebSocket for real-time updates
         await connectWebSocket(
           (msg) => {
             if (mounted) {
@@ -30,12 +32,14 @@ export function ChatPage() {
               refresh();
             }
           },
+          (localMsg) => {
+            // Route WebRTC signaling to the manager
+            handleSignalingMessage(localMsg);
+          },
         );
 
-        // Sync existing messages
         await syncMessages();
 
-        // Load conversations
         if (mounted) {
           await refresh();
         }
@@ -51,5 +55,11 @@ export function ChatPage() {
     };
   }, [did, appendMessage, refresh]);
 
-  return <AppShell />;
+  return (
+    <>
+      <AppShell />
+      <IncomingCallModal />
+      <CallOverlay />
+    </>
+  );
 }

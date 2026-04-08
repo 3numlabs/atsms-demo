@@ -6,6 +6,7 @@ import { useMessageStore } from "@/stores/message-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { Avatar } from "@/components/ui/Avatar";
+import { CallButtons } from "@/components/call/CallButtons";
 
 export function MessagePane() {
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
@@ -44,14 +45,15 @@ export function MessagePane() {
       {/* Conversation header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-main shrink-0">
         <Avatar name={otherHandle} size={28} imageUrl={profile?.avatarUrl} />
-        <div>
-          <h2 className="text-sm font-semibold text-text-primary">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-sm font-semibold text-text-primary truncate">
             {displayLabel}
           </h2>
           {profile?.displayName && (
-            <p className="text-xs text-text-secondary">@{otherHandle}</p>
+            <p className="text-xs text-text-secondary truncate">@{otherHandle}</p>
           )}
         </div>
+        <CallButtons />
       </div>
 
       {/* Messages */}
