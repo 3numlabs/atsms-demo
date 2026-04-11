@@ -9,6 +9,7 @@ interface MessageState {
   loadMessages: (convoId: string) => Promise<void>;
   appendMessage: (msg: AppMessage) => void;
   setOptimistic: (msg: AppMessage) => void;
+  updateMessage: (id: string, updates: Partial<AppMessage>) => void;
   clearMessages: () => void;
 }
 
@@ -29,13 +30,19 @@ export const useMessageStore = create<MessageState>((set) => ({
 
   appendMessage: (msg) =>
     set((state) => {
-      // Avoid duplicates
       if (state.messages.some((m) => m.id === msg.id)) return state;
       return { messages: [...state.messages, msg] };
     }),
 
   setOptimistic: (msg) =>
     set((state) => ({ messages: [...state.messages, msg] })),
+
+  updateMessage: (id, updates) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, ...updates } : m,
+      ),
+    })),
 
   clearMessages: () => set({ messages: [], loading: false }),
 }));

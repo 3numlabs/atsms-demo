@@ -11,6 +11,7 @@ import { CallButtons } from "@/components/call/CallButtons";
 export function MessagePane() {
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
+  const setActive = useConversationStore((s) => s.setActive);
   const loadMessages = useMessageStore((s) => s.loadMessages);
   const did = useAuthStore((s) => s.did);
   const profiles = useProfileStore((s) => s.profiles);
@@ -18,7 +19,6 @@ export function MessagePane() {
 
   const convo = conversations.find((c) => c.id === activeConvoId);
 
-  // Get the other participant
   const otherIdx = convo?.participantDids.findIndex((d) => d !== did) ?? -1;
   const otherDid = otherIdx >= 0 ? convo!.participantDids[otherIdx] : null;
   const otherHandle =
@@ -43,7 +43,23 @@ export function MessagePane() {
   return (
     <div className="flex flex-col h-full">
       {/* Conversation header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-main shrink-0">
+      <div className="flex items-center gap-2 px-3 md:px-4 py-3 border-b border-border bg-main shrink-0">
+        {/* Back button — mobile only */}
+        <button
+          onClick={() => setActive(null)}
+          className="md:hidden p-1 -ml-1 text-text-secondary hover:text-text-primary transition-colors"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <polyline points="15,18 9,12 15,6" />
+          </svg>
+        </button>
         <Avatar name={otherHandle} size={28} imageUrl={profile?.avatarUrl} />
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-text-primary truncate">
@@ -56,10 +72,7 @@ export function MessagePane() {
         <CallButtons />
       </div>
 
-      {/* Messages */}
       <MessageList />
-
-      {/* Composer */}
       <MessageComposer />
     </div>
   );

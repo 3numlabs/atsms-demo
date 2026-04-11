@@ -67,10 +67,17 @@ export function MessageBubble({
             isOwn
               ? "bg-sent text-white"
               : "bg-surface text-text-primary"
-          } ${message.status === "sending" ? "opacity-60" : ""} ${message.status === "failed" ? "border border-danger" : ""}`}
+          } ${message.status === "sending" ? "opacity-60" : ""} ${message.status === "failed" ? "opacity-60" : ""}`}
         >
           {message.text}
         </div>
+        {message.status === "failed" && message.errorText && (
+          <p
+            className={`text-xs text-danger mt-0.5 ${isOwn ? "text-right" : ""}`}
+          >
+            {message.errorText}
+          </p>
+        )}
       </div>
     </div>
   );

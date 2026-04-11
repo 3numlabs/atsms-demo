@@ -15,6 +15,7 @@ export interface AppMessage {
   text: string;
   createdAt: Date;
   status: "sending" | "sent" | "failed";
+  errorText?: string;
 }
 
 export type OnboardingStep =

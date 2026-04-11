@@ -13,6 +13,7 @@ export function MessageComposer() {
   const conversations = useConversationStore((s) => s.conversations);
   const refresh = useConversationStore((s) => s.refresh);
   const setOptimistic = useMessageStore((s) => s.setOptimistic);
+  const updateMessage = useMessageStore((s) => s.updateMessage);
   const did = useAuthStore((s) => s.did);
   const handle = useAuthStore((s) => s.handle);
 
@@ -44,8 +45,13 @@ export function MessageComposer() {
     try {
       await sendDM(recipientDid, msgText);
       await refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to send message:", err);
+      const message = err?.message || "Failed to send";
+      const errorText = message.includes("No certificates found")
+        ? "This user hasn't set up ATSMS yet"
+        : message;
+      updateMessage(optimisticId, { status: "failed", errorText });
     } finally {
       setSending(false);
       textareaRef.current?.focus();

@@ -5,7 +5,7 @@ import { CallIndicator } from "@/components/call/CallIndicator";
 
 export function Sidebar() {
   return (
-    <div className="w-72 h-full flex flex-col bg-sidebar border-r border-border shrink-0">
+    <div className="w-full md:w-72 h-full flex flex-col bg-sidebar border-r border-border shrink-0">
       <Header />
       <CallIndicator />
       <ConversationList />
