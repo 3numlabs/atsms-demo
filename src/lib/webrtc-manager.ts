@@ -5,9 +5,26 @@ import { useCallStore } from "@/stores/call-store";
 import { sendWebRTCSignal } from "./webrtc-signaling";
 import { resolveHandleFromDid, getCurrentDid } from "./atsms-bridge";
 
+// Metered.ca TURN servers — free tier (50GB/month).
+// TODO: Move credentials to env variables before deploying to production.
+const METERED_USERNAME = "7ffda478cbaf1456850dfa6a";
+const METERED_CREDENTIAL = "J30nld5734A3ZbBn";
+
 const ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
+  // STUN — free, no credentials needed
+  { urls: "stun:stun.relay.metered.ca:80" },
+  // TURNS (TLS over TCP) — encrypted, works through restrictive firewalls
+  {
+    urls: "turns:standard.relay.metered.ca:443?transport=tcp",
+    username: METERED_USERNAME,
+    credential: METERED_CREDENTIAL,
+  },
+  // TURN over DTLS (UDP) — encrypted, lower latency than TCP when allowed
+  {
+    urls: "turns:standard.relay.metered.ca:443",
+    username: METERED_USERNAME,
+    credential: METERED_CREDENTIAL,
+  },
 ];
 
 // Module-level state (not in Zustand — imperative, not reactive)
@@ -27,7 +44,12 @@ function createPeerConnection(convoId: string, callId: string): RTCPeerConnectio
 
   conn.onicecandidate = (event) => {
     if (event.candidate) {
-      console.log("[WebRTC] Sending ICE candidate");
+      // Parse candidate type: host (local), srflx (STUN), prflx, relay (TURN)
+      const candidateType = event.candidate.candidate.match(/typ (\S+)/)?.[1];
+      console.log(
+        `[WebRTC] Sending ICE candidate (type: ${candidateType}):`,
+        event.candidate.candidate.substring(0, 80),
+      );
       sendWebRTCSignal(convoId, {
         type: "ice-candidate",
         candidate: {
@@ -73,6 +95,24 @@ function createPeerConnection(convoId: string, callId: string): RTCPeerConnectio
       useCallStore.setState({
         status: "connected",
         startedAt: new Date(),
+      });
+
+      // Log which ICE candidate pair won — tells us if we're using TURN relay
+      conn.getStats().then((stats) => {
+        stats.forEach((report) => {
+          if (report.type === "candidate-pair" && report.state === "succeeded" && report.nominated) {
+            const local = stats.get(report.localCandidateId);
+            const remote = stats.get(report.remoteCandidateId);
+            console.log(
+              `[WebRTC] ✓ Connected via: local=${local?.candidateType}/${local?.protocol} remote=${remote?.candidateType}/${remote?.protocol}`,
+            );
+            if (local?.candidateType === "relay" || remote?.candidateType === "relay") {
+              console.log("[WebRTC] 🔁 Using TURN relay");
+            } else {
+              console.log("[WebRTC] 🔗 Direct P2P connection");
+            }
+          }
+        });
       });
     } else if (state === "failed" || state === "closed") {
       cleanup();

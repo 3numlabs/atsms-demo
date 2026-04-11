@@ -339,7 +339,10 @@ export async function getConversationMessages(
     });
   }
 
-  return appMessages;
+  // Storage returns newest first; UI displays oldest first (newest at bottom)
+  return appMessages.sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+  );
 }
 
 export async function getConversations(): Promise<AppConversation[]> {

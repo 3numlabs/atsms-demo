@@ -10,6 +10,7 @@ interface MessageState {
   appendMessage: (msg: AppMessage) => void;
   setOptimistic: (msg: AppMessage) => void;
   updateMessage: (id: string, updates: Partial<AppMessage>) => void;
+  removeMessage: (id: string) => void;
   clearMessages: () => void;
 }
 
@@ -31,7 +32,10 @@ export const useMessageStore = create<MessageState>((set) => ({
   appendMessage: (msg) =>
     set((state) => {
       if (state.messages.some((m) => m.id === msg.id)) return state;
-      return { messages: [...state.messages, msg] };
+      const messages = [...state.messages, msg].sort(
+        (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+      );
+      return { messages };
     }),
 
   setOptimistic: (msg) =>
@@ -42,6 +46,11 @@ export const useMessageStore = create<MessageState>((set) => ({
       messages: state.messages.map((m) =>
         m.id === id ? { ...m, ...updates } : m,
       ),
+    })),
+
+  removeMessage: (id) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== id),
     })),
 
   clearMessages: () => set({ messages: [], loading: false }),

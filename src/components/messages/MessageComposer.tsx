@@ -14,6 +14,7 @@ export function MessageComposer() {
   const refresh = useConversationStore((s) => s.refresh);
   const setOptimistic = useMessageStore((s) => s.setOptimistic);
   const updateMessage = useMessageStore((s) => s.updateMessage);
+  const removeMessage = useMessageStore((s) => s.removeMessage);
   const did = useAuthStore((s) => s.did);
   const handle = useAuthStore((s) => s.handle);
 
@@ -41,9 +42,16 @@ export function MessageComposer() {
       status: "sending",
     });
 
+    // Reset textarea height immediately
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+
     setSending(true);
     try {
       await sendDM(recipientDid, msgText);
+      // Remove the optimistic message — the real one will arrive via messageAdded$
+      removeMessage(optimisticId);
       await refresh();
     } catch (err: any) {
       console.error("Failed to send message:", err);
