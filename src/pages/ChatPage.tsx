@@ -38,6 +38,12 @@ export function ChatPage() {
           },
         );
 
+        // Show existing conversations from local storage immediately
+        if (mounted) {
+          await refresh();
+        }
+
+        // Then sync new messages from the server
         await syncMessages();
 
         if (mounted) {

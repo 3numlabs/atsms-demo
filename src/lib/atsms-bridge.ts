@@ -217,15 +217,6 @@ async function setupStorageManager(
     atsmsClient: client,
   });
 
-  // TODO: Remove this localStorage sync rev seeding once we persist IndexedDB
-  // across sessions. Without persistence, IndexedDB starts fresh each session
-  // and syncMessages replays all messages from seq 0. This seeds the last known
-  // seq from localStorage so we only fetch new messages.
-  const savedSeq = localStorage.getItem("atsms_last_sync_seq");
-  if (savedSeq) {
-    await storage.setLastSyncRev(savedSeq);
-  }
-
   await storageManager.saveDid(did, handle, endpointCert);
   await storageManager.startTransport(did);
 }
@@ -297,14 +288,6 @@ export async function connectWebSocket(
 export async function syncMessages(): Promise<void> {
   if (!storageManager || !currentEndpointCert) return;
   await storageManager.syncMessages(currentEndpointCert);
-
-  // TODO: Remove once IndexedDB persistence is enabled — the library
-  // will track lastSyncRev in IndexedDB automatically.
-  const storage = storageManager.getStorage();
-  const latestRev = await storage.getLastSyncRev();
-  if (latestRev) {
-    localStorage.setItem("atsms_last_sync_seq", latestRev);
-  }
 }
 
 export async function sendDM(

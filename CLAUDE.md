@@ -27,7 +27,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 
 ## Key Design Decisions
 - Passkey-PRF required for key derivation (no fallback; mocked on localhost)
-- No message persistence across sessions (IndexedDB is session-scoped)
+- Messages and conversations persist via IndexedDB (`ATSMSStorageManager` + `IndexedDBAdapter`)
 - Dark mode only (Slack-inspired palette)
 - Library changes: `generateWithKey()` added to `ATSMSEndpointCertificate` in atsms-lib
 - WebRTC signaling via E2E encrypted ATSMS messages (contentType: "atsms/webrtc")
@@ -39,8 +39,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - Phase 3: Group chats
 
 ## TODOs
-- Enable IndexedDB persistence for messages and sync state (lastSyncRev). This will eliminate the need for the localStorage sync seq workaround in atsms-bridge.ts.
-- Remove localStorage `atsms_last_sync_seq` seeding once IndexedDB persists across sessions.
 - Remove debug logging from webrtc-manager.ts once calling is stable.
 - Add real passkey-PRF support for production (currently mocked on localhost).
 - Deploy to demo.atsms.at via Cloudflare Pages.
+- Real unread tracking, ringtone for incoming calls, message read receipts, typing indicators, file/image attachments.
