@@ -1,4 +1,4 @@
-# ATSMS Demo
+# AT-SMS Demo
 
 Slack-like E2E encrypted messaging demo on AT Protocol.
 
@@ -20,7 +20,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - OAuth client metadata: `public/client-metadata.json`
 
 ## Architecture
-- `src/lib/` - core logic (OAuth, passkey-PRF, atsms bridge, WebRTC manager, constants)
+- `src/lib/` - core logic (OAuth, passkey-PRF, AT-SMS bridge, WebRTC manager, constants)
 - `src/stores/` - Zustand stores (auth, conversations, messages, UI, calls, profiles)
 - `src/components/` - React components (layout, onboarding, conversations, messages, call, ui primitives)
 - `src/pages/` - route pages (Login, Chat)
@@ -30,7 +30,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - Messages and conversations persist via IndexedDB (`ATSMSStorageManager` + `IndexedDBAdapter`)
 - Dark mode only (Slack-inspired palette)
 - Library changes: `generateWithKey()` added to `ATSMSEndpointCertificate` in atsms-lib
-- WebRTC signaling via E2E encrypted ATSMS messages (contentType: "atsms/webrtc")
+- WebRTC signaling via E2E encrypted AT-SMS messages (contentType: "atsms/webrtc")
 - WebRTC manager is imperative (module-level RTCPeerConnection, not in Zustand)
 
 ## Phases
