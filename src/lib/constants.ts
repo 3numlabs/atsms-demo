@@ -1,4 +1,4 @@
-export const ATSMS_API_URL = "https://atsms-api.enumdao.workers.dev";
+export const ATSMS_API_URL = "https://atsms-api-dev.enumdao.workers.dev";
 export const EMAIL_DOMAIN = "demo.atsms.at";
 export const APP_DOMAIN = "demo.atsms.at";
 export const APP_URL = `https://${APP_DOMAIN}`;

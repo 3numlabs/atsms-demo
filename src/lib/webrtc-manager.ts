@@ -1,31 +1,64 @@
 import { nanoid } from "nanoid";
-import { parseWebRTCContent } from "@atsms/sms";
+import { parseWebRTCContent, generateJWT } from "@atsms/sms";
 import type { ATSMSWebRTCContent } from "@atsms/sms";
 import { useCallStore } from "@/stores/call-store";
 import { sendWebRTCSignal } from "./webrtc-signaling";
-import { resolveHandleFromDid, getCurrentDid } from "./atsms-bridge";
+import { resolveHandleFromDid, getCurrentDid, getEndpointCert } from "./atsms-bridge";
+import { ATSMS_API_URL } from "./constants";
 
-// Metered.ca TURN servers — free tier (50GB/month).
-// TODO: Move credentials to env variables before deploying to production.
-const METERED_USERNAME = "7ffda478cbaf1456850dfa6a";
-const METERED_CREDENTIAL = "J30nld5734A3ZbBn";
-
-const ICE_SERVERS: RTCIceServer[] = [
-  // STUN — free, no credentials needed
-  { urls: "stun:stun.relay.metered.ca:80" },
-  // TURNS (TLS over TCP) — encrypted, works through restrictive firewalls
-  {
-    urls: "turns:standard.relay.metered.ca:443?transport=tcp",
-    username: METERED_USERNAME,
-    credential: METERED_CREDENTIAL,
-  },
-  // TURN over DTLS (UDP) — encrypted, lower latency than TCP when allowed
-  {
-    urls: "turns:standard.relay.metered.ca:443",
-    username: METERED_USERNAME,
-    credential: METERED_CREDENTIAL,
-  },
+// Fallback STUN-only config (used if TURN credential fetch fails)
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
 ];
+
+// Cache fetched TURN credentials to avoid re-fetching per call
+let cachedIceServers: RTCIceServer[] | null = null;
+let cacheExpiresAt = 0;
+
+async function getIceServers(): Promise<RTCIceServer[]> {
+  // Return cached if still valid (with 5 min buffer before expiry)
+  if (cachedIceServers && Date.now() < cacheExpiresAt - 300_000) {
+    return cachedIceServers;
+  }
+
+  const cert = getEndpointCert();
+  const did = getCurrentDid();
+  if (!cert || !did || !cert.certificatePrivateKeyPEM) {
+    console.warn("[WebRTC] No cert available, using fallback STUN");
+    return FALLBACK_ICE_SERVERS;
+  }
+
+  try {
+    const jwt = await generateJWT(
+      cert.certificatePrivateKeyPEM,
+      cert.serialNumber,
+      did,
+    );
+
+    const res = await fetch(`${ATSMS_API_URL}/turn-credentials`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${jwt}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ttl: 3600 }),
+    });
+
+    if (!res.ok) {
+      console.warn(`[WebRTC] TURN credential fetch failed: ${res.status}`);
+      return FALLBACK_ICE_SERVERS;
+    }
+
+    const data = await res.json();
+    cachedIceServers = data.iceServers;
+    cacheExpiresAt = new Date(data.expiresAt).getTime();
+    console.log("[WebRTC] Fetched TURN credentials, expires:", data.expiresAt);
+    return cachedIceServers!;
+  } catch (err) {
+    console.warn("[WebRTC] Failed to fetch TURN credentials:", err);
+    return FALLBACK_ICE_SERVERS;
+  }
+}
 
 // Module-level state (not in Zustand — imperative, not reactive)
 let pc: RTCPeerConnection | null = null;
@@ -39,8 +72,8 @@ function getStore() {
   return useCallStore.getState();
 }
 
-function createPeerConnection(convoId: string, callId: string): RTCPeerConnection {
-  const conn = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+function createPeerConnection(convoId: string, callId: string, iceServers: RTCIceServer[]): RTCPeerConnection {
+  const conn = new RTCPeerConnection({ iceServers });
 
   conn.onicecandidate = (event) => {
     if (event.candidate) {
@@ -155,12 +188,15 @@ export async function startCall(
   });
 
   try {
-    // Get local media
-    const localStream = await getMediaStream(mediaTypes);
+    // Fetch TURN credentials and get local media in parallel
+    const [iceServers, localStream] = await Promise.all([
+      getIceServers(),
+      getMediaStream(mediaTypes),
+    ]);
     useCallStore.setState({ localStream });
 
     // Create peer connection
-    pc = createPeerConnection(convoId, callId);
+    pc = createPeerConnection(convoId, callId, iceServers);
     localStream.getTracks().forEach((track) => pc!.addTrack(track, localStream));
 
     // Create and send offer
@@ -209,10 +245,13 @@ export async function acceptCall(): Promise<void> {
   }
 
   try {
-    const localStream = await getMediaStream(store.mediaTypes);
+    const [iceServers, localStream] = await Promise.all([
+      getIceServers(),
+      getMediaStream(store.mediaTypes),
+    ]);
     useCallStore.setState({ localStream });
 
-    pc = createPeerConnection(convoId, callId);
+    pc = createPeerConnection(convoId, callId, iceServers);
     localStream.getTracks().forEach((track) => pc!.addTrack(track, localStream));
 
     // Set remote description (the offer)

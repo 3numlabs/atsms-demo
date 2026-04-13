@@ -15,7 +15,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - `bun run preview` - preview production build
 
 ## Config
-- Worker API: `https://atsms-api.enumdao.workers.dev`
+- Worker API: `https://atsms-api-dev.enumdao.workers.dev`
 - Email domain: `demo.atsms.at`
 - OAuth client metadata: `public/client-metadata.json`
 
