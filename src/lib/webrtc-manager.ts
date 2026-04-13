@@ -130,22 +130,27 @@ function createPeerConnection(convoId: string, callId: string, iceServers: RTCIc
         startedAt: new Date(),
       });
 
-      // Log which ICE candidate pair won — tells us if we're using TURN relay
+      // Log which ICE candidate pair won and connection quality
       conn.getStats().then((stats) => {
+        let foundPair = false;
         stats.forEach((report) => {
-          if (report.type === "candidate-pair" && report.state === "succeeded" && report.nominated) {
+          if (report.type === "candidate-pair" && report.state === "succeeded") {
+            foundPair = true;
             const local = stats.get(report.localCandidateId);
             const remote = stats.get(report.remoteCandidateId);
             console.log(
-              `[WebRTC] ✓ Connected via: local=${local?.candidateType}/${local?.protocol} remote=${remote?.candidateType}/${remote?.protocol}`,
+              `[WebRTC] Connected via: local=${local?.candidateType}/${local?.protocol}/${local?.address} remote=${remote?.candidateType}/${remote?.protocol}/${remote?.address}`,
             );
             if (local?.candidateType === "relay" || remote?.candidateType === "relay") {
-              console.log("[WebRTC] 🔁 Using TURN relay");
+              console.log("[WebRTC] Using TURN relay (expect higher latency)");
             } else {
-              console.log("[WebRTC] 🔗 Direct P2P connection");
+              console.log("[WebRTC] Direct P2P connection");
             }
           }
         });
+        if (!foundPair) {
+          console.warn("[WebRTC] No succeeded candidate pair found in stats");
+        }
       });
     } else if (state === "failed" || state === "closed") {
       cleanup();
@@ -159,8 +164,19 @@ async function getMediaStream(
   mediaTypes: ("audio" | "video")[],
 ): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
-    audio: true,
-    video: mediaTypes.includes("video"),
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+    video: mediaTypes.includes("video")
+      ? {
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 30 },
+          facingMode: "user",
+        }
+      : false,
   });
 }
 
