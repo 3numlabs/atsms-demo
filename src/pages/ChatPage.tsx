@@ -3,7 +3,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useMessageStore } from "@/stores/message-store";
-import { connectWebSocket, syncMessages } from "@/lib/atsms-bridge";
+import { connectLive, disconnectLive, setSignalHandler } from "@/lib/atsms-bridge";
+import { inboundCallSignals } from "@/lib/webrtc-signaling";
 import { handleSignalingMessage } from "@/lib/webrtc-manager";
 import { CallOverlay } from "@/components/call/CallOverlay";
 import { IncomingCallModal } from "@/components/call/IncomingCallModal";
@@ -18,46 +19,35 @@ export function ChatPage() {
 
     let mounted = true;
 
-    async function init() {
-      try {
-        await connectWebSocket(
-          (msg) => {
-            if (mounted) {
-              appendMessage(msg);
-              refresh();
-            }
-          },
-          (_convoId) => {
-            if (mounted) {
-              refresh();
-            }
-          },
-          (localMsg) => {
-            // Route WebRTC signaling to the manager
-            handleSignalingMessage(localMsg);
-          },
-        );
-
-        // Show existing conversations from local storage immediately
-        if (mounted) {
-          await refresh();
-        }
-
-        // Then sync new messages from the server
-        await syncMessages();
-
-        if (mounted) {
-          await refresh();
-        }
-      } catch (err) {
-        console.error("Failed to initialize chat:", err);
+    // Ephemeral call signaling (never persisted — format §8) → the call layer.
+    setSignalHandler((content, senderDid) => {
+      for (const signal of inboundCallSignals(content, senderDid)) {
+        void handleSignalingMessage(signal);
       }
-    }
+    });
 
-    init();
+    try {
+      // Live feeds: new transcript messages + conversation-list changes.
+      // (The transport polls the relay itself; no manual sync step.)
+      connectLive(
+        (msg) => {
+          if (mounted) {
+            appendMessage(msg);
+            refresh();
+          }
+        },
+        () => {
+          if (mounted) refresh();
+        },
+      );
+      refresh();
+    } catch (err) {
+      console.error("Failed to initialize chat:", err);
+    }
 
     return () => {
       mounted = false;
+      disconnectLive();
     };
   }, [did, appendMessage, refresh]);
 

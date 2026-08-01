@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   registerPasskey,
+  authenticatePasskey,
   mockRegisterPasskey,
   storeUserData,
+  getStoredCredentialId,
+  getStoredDid,
   IS_LOCALHOST,
 } from "@/lib/passkey-prf";
 import { initializeNewCert } from "@/lib/atsms-bridge";
@@ -29,10 +32,24 @@ export function PasskeySetup({
     setError(null);
 
     try {
-      // Use mock passkey on localhost (WebAuthn doesn't work on localhost/127.0.0.1)
-      const result = IS_LOCALHOST
-        ? await mockRegisterPasskey(did)
-        : await registerPasskey(did);
+      // Reuse the existing credential when this DID already set one up on this
+      // browser — re-registering would mint a DIFFERENT key (new device, and
+      // the previous session's encrypted storage becomes un-unlockable).
+      // Register only on first setup. (Mock on localhost is deterministic.)
+      const storedCredentialId = getStoredDid() === did ? getStoredCredentialId() : null;
+      let result;
+      if (IS_LOCALHOST) {
+        result = await mockRegisterPasskey(did);
+      } else if (storedCredentialId) {
+        try {
+          result = await authenticatePasskey(did, storedCredentialId);
+        } catch {
+          // Credential gone (deleted from the authenticator) — start fresh.
+          result = await registerPasskey(did);
+        }
+      } else {
+        result = await registerPasskey(did);
+      }
 
       if (!oauthAgent) {
         throw new Error("No authenticated session available");
@@ -103,7 +120,11 @@ export function PasskeySetup({
       )}
 
       <Button onClick={handlePasskey} loading={loading} className="w-full">
-        {IS_LOCALHOST ? "Create Key (mock)" : "Create Passkey"}
+        {IS_LOCALHOST
+          ? "Create Key (mock)"
+          : getStoredDid() === did && getStoredCredentialId()
+            ? "Unlock with Passkey"
+            : "Create Passkey"}
       </Button>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useRef, type KeyboardEvent } from "react";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useMessageStore } from "@/stores/message-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { sendDM } from "@/lib/atsms-bridge";
+import { sendMessage } from "@/lib/atsms-bridge";
 import { nanoid } from "nanoid";
 
 export function MessageComposer() {
@@ -26,10 +26,6 @@ export function MessageComposer() {
     const msgText = text.trim();
     setText("");
 
-    // Find other participant DID
-    const recipientDid = convo.participantDids.find((d) => d !== did);
-    if (!recipientDid) return;
-
     // Optimistic update
     const optimisticId = nanoid(13);
     setOptimistic({
@@ -49,15 +45,17 @@ export function MessageComposer() {
 
     setSending(true);
     try {
-      await sendDM(recipientDid, msgText);
-      // Remove the optimistic message — the real one will arrive via messageAdded$
+      // Routed by the thread's pinned mode (secure conversation vs one-shot
+      // notice) — never re-decided here.
+      await sendMessage(convo.id, msgText);
+      // Remove the optimistic message — the real one arrives via the live feed
       removeMessage(optimisticId);
       await refresh();
     } catch (err: any) {
       console.error("Failed to send message:", err);
       const message = err?.message || "Failed to send";
-      const errorText = message.includes("No certificates found")
-        ? "This user hasn't set up ATSMS yet"
+      const errorText = message.includes("no published endpoint certificates")
+        ? "This user hasn't set up AT-SMS yet"
         : message;
       updateMessage(optimisticId, { status: "failed", errorText });
     } finally {

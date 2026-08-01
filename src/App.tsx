@@ -46,7 +46,7 @@ export function App() {
           if (result?.session) {
             sessionStorage.setItem("atsms_oauth_did", result.session.did);
             setStep("passkey");
-            history.replaceState(null, "", window.location.pathname);
+            history.replaceState(null, "", "/"); // leave /callback — it's not a real route
           } else {
             setError("OAuth did not return a session");
             setStep("handle");

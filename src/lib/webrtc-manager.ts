@@ -1,8 +1,7 @@
 import { nanoid } from "nanoid";
-import { parseWebRTCContent, generateJWT } from "@atsms/sms";
-import type { ATSMSWebRTCContent } from "@atsms/sms";
+import { generateJWT } from "@atsms/sms";
 import { useCallStore } from "@/stores/call-store";
-import { sendWebRTCSignal } from "./webrtc-signaling";
+import { sendWebRTCSignal, type InboundSignal } from "./webrtc-signaling";
 import { resolveHandleFromDid, getCurrentDid, getEndpointCert } from "./atsms-bridge";
 import { ATSMS_API_URL } from "./constants";
 
@@ -84,14 +83,13 @@ function createPeerConnection(convoId: string, callId: string, iceServers: RTCIc
         event.candidate.candidate.substring(0, 80),
       );
       sendWebRTCSignal(convoId, {
-        type: "ice-candidate",
+        type: "ice",
         candidate: {
           candidate: event.candidate.candidate,
           sdpMid: event.candidate.sdpMid,
           sdpMLineIndex: event.candidate.sdpMLineIndex,
         },
         callId,
-        timestamp: Date.now(),
       }).catch((err) => console.error("[WebRTC] Failed to send ICE candidate:", err));
     }
   };
@@ -224,7 +222,6 @@ export async function startCall(
       sdp: offer.sdp,
       callId,
       mediaTypes,
-      timestamp: Date.now(),
     });
 
     // Auto-hangup after 30 seconds if no answer
@@ -287,7 +284,6 @@ export async function acceptCall(): Promise<void> {
       type: "answer",
       sdp: answer.sdp,
       callId,
-      timestamp: Date.now(),
     });
 
     // Clear pending offer
@@ -308,7 +304,6 @@ export async function hangup(): Promise<void> {
       await sendWebRTCSignal(store.convoId, {
         type: "hangup",
         callId: store.callId,
-        timestamp: Date.now(),
       });
     } catch (err) {
       console.error("[WebRTC] Failed to send hangup:", err);
@@ -327,32 +322,21 @@ export function declineCall(): void {
     sendWebRTCSignal(convoId, {
       type: "hangup",
       callId,
-      timestamp: Date.now(),
     }).catch((err) => console.error("[WebRTC] Failed to send decline:", err));
   }
   cleanup();
 }
 
-export async function handleSignalingMessage(localMsg: {
-  senderId: string;
-  content: string;
-  convoId: string;
-}): Promise<void> {
-  // Ignore our own messages (they echo back via messageAdded$)
+export async function handleSignalingMessage(localMsg: InboundSignal): Promise<void> {
+  // Ephemeral delivery already excludes our own sends and stale messages
+  // (format §8) — the guard below is defense in depth only.
   const myDid = getCurrentDid();
   if (localMsg.senderId === myDid) return;
 
-  const webrtc: ATSMSWebRTCContent = parseWebRTCContent(localMsg.content);
+  const webrtc = localMsg.signal;
   const store = getStore();
 
-  // Ignore stale messages — WebRTC signaling older than 30s is useless.
-  // For offers without a timestamp, reject them (all our offers include timestamps).
-  const messageAge = webrtc.timestamp ? Date.now() - webrtc.timestamp : Infinity;
-  if (messageAge > 30_000) {
-    return;
-  }
-
-  // Ignore non-offer messages when idle (old hangups, answers, ice-candidates)
+  // Ignore non-offer messages when idle (old hangups, answers, ice candidates)
   if (store.status === "idle" && webrtc.type !== "offer") {
     return;
   }
@@ -374,7 +358,6 @@ export async function handleSignalingMessage(localMsg: {
         await sendWebRTCSignal(localMsg.convoId, {
           type: "hangup",
           callId: webrtc.callId,
-          timestamp: Date.now(),
         });
         return;
       }
@@ -432,7 +415,7 @@ export async function handleSignalingMessage(localMsg: {
       break;
     }
 
-    case "ice-candidate": {
+    case "ice": {
       if (!webrtc.candidate) return;
 
       const candidate: RTCIceCandidateInit = {

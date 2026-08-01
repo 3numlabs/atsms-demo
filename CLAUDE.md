@@ -2,6 +2,14 @@
 
 Slack-like E2E encrypted messaging demo on AT Protocol.
 
+> **Ported to the v2 message format (2026-08-01).** Runs on the `ATSMS` client over the v2 CBOR
+> content format (umbrella `docs/message-format.md`). Thread mode is DELIBERATE (sdk-shape.md
+> Part A): secure conversation (DCGKA) or one-shot notice thread (X509), chosen via
+> `atsms.reachability()` in the new-conversation flow, pinned per thread — no silent fallback. Call signaling is ephemeral `call` parts via `onSignal` — never
+> persisted, which retires the replay workarounds documented in `docs/webrtc-over-atsms.md`.
+> Calls require a DCGKA conversation (one-shot threads are text-only). Not yet re-verified live
+> against the deployed worker after the port.
+
 ## Stack
 - React 19, Vite 8, TypeScript 6, Tailwind CSS v4, Zustand
 - `@atsms/sms` (linked from `../atsms-lib`) for crypto, storage, transport
@@ -27,10 +35,14 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 
 ## Key Design Decisions
 - Passkey-PRF required for key derivation (no fallback; mocked on localhost)
-- Messages and conversations persist via IndexedDB (`ATSMSStorageManager` + `IndexedDBAdapter`)
+- Messages and conversations persist via IndexedDB (the `ATSMS` client over
+  `EncryptedStorageAdapter(IndexedDBAdapter)` — the passkey PRF seed derives the storage KEK under
+  its own reserved HKDF label, and the DCGKA state blobs (engine state + prekey ring) are
+  envelope-encrypted at rest, same shape as atsms-web; v2 content rows + reaction/edit projections)
 - Dark mode only (Slack-inspired palette)
 - Library changes: `generateWithKey()` added to `ATSMSEndpointCertificate` in atsms-lib
-- WebRTC signaling via E2E encrypted AT-SMS messages (contentType: "atsms/webrtc")
+- WebRTC signaling via E2E encrypted **ephemeral** messages (v2 `call` parts, format §8) —
+  DCGKA conversations only
 - WebRTC manager is imperative (module-level RTCPeerConnection, not in Zustand)
 
 ## Phases

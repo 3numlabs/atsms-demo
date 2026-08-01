@@ -1,0 +1,13 @@
+{
+  // atsms-demo — static assets only, no server code (the backend is the relay
+  // worker + the user's PDS). This worker deploy (atsms-demo-dev.workers.dev)
+  // is the TEST target; production stays the Cloudflare Pages deploy at
+  // demo.atsms.at. `bun run deploy:dev` builds, stamps dist/client-metadata.json
+  // with the workers.dev origin, and deploys.
+  "name": "atsms-demo-dev",
+  "compatibility_date": "2026-07-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

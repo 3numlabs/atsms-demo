@@ -4,10 +4,9 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import {
   resolveHandle,
-  getDMConvoId,
-  getStorageManager,
-  getCurrentDid,
-  checkExistingCerts,
+  reachabilityOf,
+  startSecureConversation,
+  startNoticeThread,
 } from "@/lib/atsms-bridge";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useAuthStore } from "@/stores/auth-store";
@@ -17,12 +16,16 @@ interface NewConversationProps {
   onClose: () => void;
 }
 
+/**
+ * Mode selection is deliberate (sdk-shape.md Part A): the recipient's
+ * reachability decides what we OFFER, and the user confirms anything weaker
+ * than a secure conversation — there is no silent fallback.
+ */
 export function NewConversation({ open, onClose }: NewConversationProps) {
   const [handle, setHandle] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [noCertWarning, setNoCertWarning] = useState(false);
-  const [resolvedInfo, setResolvedInfo] = useState<{
+  const [noticeOffer, setNoticeOffer] = useState<{
     did: string;
     handle: string;
   } | null>(null);
@@ -39,23 +42,32 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
 
     setLoading(true);
     setError(null);
-    setNoCertWarning(false);
+    setNoticeOffer(null);
 
     try {
       const cleanHandle = handle.startsWith("@") ? handle.slice(1) : handle;
       const { did: recipientDid } = await resolveHandle(cleanHandle);
 
-      // Check if recipient has ATSMS certs
-      const certs = await checkExistingCerts(recipientDid);
-      if (certs.length === 0) {
-        // Show warning but allow proceeding
-        setNoCertWarning(true);
-        setResolvedInfo({ did: recipientDid, handle: cleanHandle });
-        setLoading(false);
+      const reachability = await reachabilityOf(recipientDid);
+
+      if (reachability === "unreachable") {
+        setError(
+          `@${cleanHandle} hasn't set up AT-SMS yet — nothing can be delivered to them.`,
+        );
         return;
       }
 
-      await startConversation(recipientDid, cleanHandle);
+      if (reachability === "one-shot") {
+        // Weaker surface — offer it explicitly, don't just proceed.
+        setNoticeOffer({ did: recipientDid, handle: cleanHandle });
+        return;
+      }
+
+      await activateThread(
+        await startSecureConversation(recipientDid),
+        recipientDid,
+        cleanHandle,
+      );
     } catch (err: any) {
       setError(err.message || "Could not find that user");
     } finally {
@@ -63,17 +75,26 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
     }
   }
 
-  async function startConversation(recipientDid: string, cleanHandle: string) {
-    const convoId = await getDMConvoId(recipientDid);
-
-    const sm = getStorageManager();
-    if (sm) {
-      const existing = await sm.getConversation(convoId);
-      if (!existing) {
-        await sm.getOrCreateConversation([getCurrentDid()!, recipientDid]);
-      }
+  async function startNotice(recipientDid: string, cleanHandle: string) {
+    setLoading(true);
+    try {
+      await activateThread(
+        await startNoticeThread(recipientDid),
+        recipientDid,
+        cleanHandle,
+      );
+    } catch (err: any) {
+      setError(err.message || "Could not start the thread");
+    } finally {
+      setLoading(false);
     }
+  }
 
+  async function activateThread(
+    convoId: string,
+    recipientDid: string,
+    cleanHandle: string,
+  ) {
     addOrUpdateConversation({
       id: convoId,
       participantDids: [did!, recipientDid],
@@ -85,16 +106,14 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
 
     setActive(convoId);
     setHandle("");
-    setNoCertWarning(false);
-    setResolvedInfo(null);
+    setNoticeOffer(null);
     onClose();
   }
 
   function handleClose() {
     setHandle("");
     setError(null);
-    setNoCertWarning(false);
-    setResolvedInfo(null);
+    setNoticeOffer(null);
     onClose();
   }
 
@@ -107,18 +126,18 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
           value={handle}
           onChange={(e) => {
             setHandle(e.target.value);
-            setNoCertWarning(false);
-            setResolvedInfo(null);
+            setNoticeOffer(null);
           }}
           error={error || undefined}
           autoFocus
         />
 
-        {noCertWarning && resolvedInfo && (
+        {noticeOffer && (
           <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/30 p-3 space-y-2">
             <p className="text-sm text-yellow-400">
-              @{resolvedInfo.handle} hasn't set up ATSMS yet. They won't be
-              able to receive messages until they register a certificate.
+              @{noticeOffer.handle} can only receive basic encrypted messages
+              (no forward secrecy, no calls) — like certified mail, not a
+              secure conversation. Send anyway?
             </p>
             <div className="flex gap-2">
               <Button
@@ -132,17 +151,16 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
               <Button
                 type="button"
                 className="text-xs"
-                onClick={() =>
-                  startConversation(resolvedInfo.did, resolvedInfo.handle)
-                }
+                loading={loading}
+                onClick={() => startNotice(noticeOffer.did, noticeOffer.handle)}
               >
-                Start anyway
+                Send basic messages
               </Button>
             </div>
           </div>
         )}
 
-        {!noCertWarning && (
+        {!noticeOffer && (
           <div className="flex justify-end gap-2">
             <Button variant="secondary" type="button" onClick={handleClose}>
               Cancel

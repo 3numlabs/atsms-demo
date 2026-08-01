@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:dev": "bun run build && bun scripts/stamp-client-metadata.ts https://atsms-demo-dev.3numlabs.workers.dev && bunx wrangler deploy"
   },
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.3.41",
