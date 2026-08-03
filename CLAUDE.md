@@ -48,7 +48,9 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 ## Phases
 - Phase 1: Onboarding + DM (done)
 - Phase 2: Video/audio calls via WebRTC (done)
-- Phase 3: Group chats
+- Phase 3: Group chats — creation + group-aware display DONE (2026-08-03, ported from atsms-web at
+  its EOL; batched addMembers underneath). Remaining: add/remove-member UI, in-band group-name sync,
+  group calls
 
 ## TODOs
 - Remove debug logging from webrtc-manager.ts once calling is stable.
