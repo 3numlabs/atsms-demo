@@ -41,11 +41,17 @@ export function ConversationItem({
   const fetchProfileByDid = useProfileStore((s) => s.fetchProfileByDid);
   const profiles = useProfileStore((s) => s.profiles);
 
-  // Find the other participant
+  const isGroup = conversation.participantDids.length > 2;
+  const others = conversation.participantHandles.filter(
+    (_, i) => conversation.participantDids[i] !== currentDid,
+  );
+
+  // Find the other participant (DM display)
   const otherIdx = conversation.participantDids.findIndex(
     (d) => d !== currentDid,
   );
-  const otherDid = otherIdx >= 0 ? conversation.participantDids[otherIdx] : null;
+  const otherDid =
+    !isGroup && otherIdx >= 0 ? conversation.participantDids[otherIdx] : null;
   const otherHandle =
     otherIdx >= 0
       ? conversation.participantHandles[otherIdx]
@@ -53,12 +59,14 @@ export function ConversationItem({
 
   const profile = otherDid ? profiles[otherDid] : undefined;
 
-  // Fetch profile for the other participant
+  // Fetch profile for the other participant (DMs only)
   useEffect(() => {
     if (otherDid) fetchProfileByDid(otherDid);
   }, [otherDid, fetchProfileByDid]);
 
-  const displayLabel = profile?.displayName || otherHandle;
+  const displayLabel = isGroup
+    ? conversation.title || others.join(", ") || `${others.length + 1} people`
+    : profile?.displayName || otherHandle;
 
   return (
     <button
@@ -69,7 +77,11 @@ export function ConversationItem({
           : "text-text-secondary hover:bg-sidebar-hover"
       }`}
     >
-      <Avatar name={otherHandle} size={32} imageUrl={profile?.avatarUrl} />
+      <Avatar
+        name={isGroup ? displayLabel : otherHandle}
+        size={32}
+        imageUrl={isGroup ? null : profile?.avatarUrl}
+      />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <span

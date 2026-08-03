@@ -315,9 +315,20 @@ export async function reachabilityOf(did: string): Promise<Reachability> {
 }
 
 /** Start (or reuse) a secure conversation — throws if the recipient lacks a prekey. */
-export async function startSecureConversation(recipientDid: string): Promise<string> {
-  if (!atsms) throw new Error("Not initialized");
-  const convo = await atsms.open({ members: [recipientDid] });
+export async function startSecureConversation(
+  recipientDids: string[],
+  title?: string,
+): Promise<string> {
+  if (!atsms || !storage) throw new Error("Not initialized");
+  const convo = await atsms.open({ members: recipientDids });
+  if (title !== undefined && title.trim() !== "") {
+    // Group name lives in the conversation record's metadata (local for now;
+    // in-band name sync is a later protocol feature).
+    const record = await storage.getConversation(convo.id);
+    if (record !== null) {
+      await storage.saveConversation({ ...record, metadata: { ...record.metadata, title: title.trim() } });
+    }
+  }
   return convo.id;
 }
 
@@ -400,10 +411,12 @@ export async function getConversations(): Promise<AppConversation[]> {
     const lastMsg = transcript[transcript.length - 1];
     const lastMsgText = lastMsg === undefined ? "" : (textOf(lastMsg.content) ?? "");
 
+    const title = (convo.metadata as { title?: string } | undefined)?.title;
     appConvos.push({
       id: convo.id,
       participantDids: convo.participantIds,
       participantHandles: handles,
+      ...(title !== undefined ? { title } : {}),
       lastMessage: lastMsgText,
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,

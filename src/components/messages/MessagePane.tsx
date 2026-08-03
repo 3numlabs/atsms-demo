@@ -19,8 +19,15 @@ export function MessagePane() {
 
   const convo = conversations.find((c) => c.id === activeConvoId);
 
+  const isGroup = (convo?.participantDids.length ?? 0) > 2;
+  const others =
+    convo?.participantHandles.filter(
+      (_, i) => convo.participantDids[i] !== did,
+    ) ?? [];
+
   const otherIdx = convo?.participantDids.findIndex((d) => d !== did) ?? -1;
-  const otherDid = otherIdx >= 0 ? convo!.participantDids[otherIdx] : null;
+  const otherDid =
+    !isGroup && otherIdx >= 0 ? convo!.participantDids[otherIdx] : null;
   const otherHandle =
     otherIdx >= 0
       ? convo!.participantHandles[otherIdx]
@@ -38,7 +45,9 @@ export function MessagePane() {
     }
   }, [activeConvoId, loadMessages]);
 
-  const displayLabel = profile?.displayName || otherHandle;
+  const displayLabel = isGroup
+    ? convo?.title || others.join(", ") || `${others.length + 1} people`
+    : profile?.displayName || otherHandle;
 
   return (
     <div className="flex flex-col h-full">
@@ -60,16 +69,27 @@ export function MessagePane() {
             <polyline points="15,18 9,12 15,6" />
           </svg>
         </button>
-        <Avatar name={otherHandle} size={28} imageUrl={profile?.avatarUrl} />
+        <Avatar
+          name={isGroup ? displayLabel : otherHandle}
+          size={28}
+          imageUrl={isGroup ? null : profile?.avatarUrl}
+        />
         <div className="flex-1 min-w-0">
           <h2 className="text-sm font-semibold text-text-primary truncate">
             {displayLabel}
           </h2>
-          {profile?.displayName && (
-            <p className="text-xs text-text-secondary truncate">@{otherHandle}</p>
+          {isGroup ? (
+            <p className="text-xs text-text-secondary truncate">
+              {others.length + 1} members · {others.map((h) => `@${h}`).join(" ")}
+            </p>
+          ) : (
+            profile?.displayName && (
+              <p className="text-xs text-text-secondary truncate">@{otherHandle}</p>
+            )
           )}
         </div>
-        <CallButtons />
+        {/* Calls are 1:1 (A→B) — no group-call surface yet. */}
+        {!isGroup && <CallButtons />}
       </div>
 
       <MessageList />

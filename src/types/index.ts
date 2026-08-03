@@ -2,6 +2,8 @@ export interface AppConversation {
   id: string;
   participantDids: string[];
   participantHandles: string[];
+  /** Group name (metadata.title) — set for named groups, absent for DMs. */
+  title?: string;
   lastMessage?: string;
   lastMessageAt?: Date;
   unreadCount: number;
