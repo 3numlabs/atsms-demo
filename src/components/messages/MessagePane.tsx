@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MessageList } from "./MessageList";
 import { MessageComposer } from "./MessageComposer";
 import { useConversationStore } from "@/stores/conversation-store";
@@ -7,8 +7,12 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { Avatar } from "@/components/ui/Avatar";
 import { CallButtons } from "@/components/call/CallButtons";
+import { removeMemberFromConversation } from "@/lib/atsms-bridge";
 
 export function MessagePane() {
+  const [showMembers, setShowMembers] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
   const setActive = useConversationStore((s) => s.setActive);
@@ -79,9 +83,16 @@ export function MessagePane() {
             {displayLabel}
           </h2>
           {isGroup ? (
-            <p className="text-xs text-text-secondary truncate">
+            <button
+              type="button"
+              onClick={() => {
+                setShowMembers(!showMembers);
+                setMemberError(null);
+              }}
+              className="block text-xs text-text-secondary truncate hover:text-text-primary transition-colors"
+            >
               {others.length + 1} members · {others.map((h) => `@${h}`).join(" ")}
-            </p>
+            </button>
           ) : (
             profile?.displayName && (
               <p className="text-xs text-text-secondary truncate">@{otherHandle}</p>
@@ -91,6 +102,50 @@ export function MessagePane() {
         {/* Calls are 1:1 (A→B) — no group-call surface yet. */}
         {!isGroup && <CallButtons />}
       </div>
+
+      {/* Group member panel: roster + removal (admin-only; the engine rejects
+          non-admin removes and the error is surfaced verbatim). */}
+      {isGroup && showMembers && convo && (
+        <div className="border-b border-border bg-main px-4 py-2 space-y-1 shrink-0">
+          {convo.participantDids.map((mDid, i) => {
+            const mHandle = convo.participantHandles[i];
+            const isSelf = mDid === did;
+            return (
+              <div key={mDid} className="flex items-center justify-between text-xs">
+                <span className="text-text-secondary truncate">
+                  @{mHandle}
+                  {isSelf && " (you)"}
+                </span>
+                {!isSelf && (
+                  <button
+                    type="button"
+                    disabled={removing !== null}
+                    onClick={async () => {
+                      setMemberError(null);
+                      setRemoving(mDid);
+                      try {
+                        await removeMemberFromConversation(convo.id, mDid);
+                      } catch (err: any) {
+                        setMemberError(
+                          /Unauthorized/.test(err?.message ?? "")
+                            ? "Only a group admin can remove members."
+                            : err?.message || "Could not remove member",
+                        );
+                      } finally {
+                        setRemoving(null);
+                      }
+                    }}
+                    className="text-red-400/80 hover:text-red-400 disabled:opacity-50 transition-colors"
+                  >
+                    {removing === mDid ? "Removing…" : "Remove"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          {memberError && <p className="text-xs text-red-400">{memberError}</p>}
+        </div>
+      )}
 
       <MessageList />
       <MessageComposer />

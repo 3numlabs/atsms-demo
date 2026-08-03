@@ -354,6 +354,15 @@ export async function startNoticeThread(recipientDid: string): Promise<string> {
   return convoId;
 }
 
+/** Remove a DID from a secure conversation (every device; admin only —
+ *  strong remove, enforced by the engine). One-shot threads have no
+ *  membership to manage. */
+export async function removeMemberFromConversation(convoId: string, did: string): Promise<void> {
+  if (!atsms) throw new Error("Not initialized");
+  if (!convoId.startsWith("02")) throw new Error("Notice threads have no members to manage");
+  await atsms.removeMember(convoId, did);
+}
+
 /** Send into an existing thread, routed by its pinned mode. No fallback. */
 export async function sendMessage(convoId: string, text: string): Promise<void> {
   if (!atsms || !storage || !currentDid) throw new Error("Not initialized");
