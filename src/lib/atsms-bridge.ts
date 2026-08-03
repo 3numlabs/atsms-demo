@@ -239,6 +239,8 @@ async function bootClient(
     mailtoAddress: didMailtoUri(did, EMAIL_DOMAIN),
     onEvent: (kind, detail) => console.log(`[ATSMS] ${kind}: ${detail}`),
     onSignal: (content, senderDid) => signalHandler?.(content, senderDid),
+    // Profiling samples (devtools verbose level; on-device only).
+    onMetric: (m) => console.debug("[ATSMS metric]", m),
   });
 }
 
