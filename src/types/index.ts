@@ -4,6 +4,8 @@ export interface AppConversation {
   participantHandles: string[];
   /** Group name (metadata.title) — set for named groups, absent for DMs. */
   title?: string;
+  /** This device was removed from the conversation — render read-only. */
+  removed?: boolean;
   lastMessage?: string;
   lastMessageAt?: Date;
   unreadCount: number;

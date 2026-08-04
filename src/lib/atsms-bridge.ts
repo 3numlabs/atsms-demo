@@ -354,6 +354,44 @@ export async function startNoticeThread(recipientDid: string): Promise<string> {
   return convoId;
 }
 
+/**
+ * Membership history for a conversation (who admitted/removed whom), derived
+ * from the engine's retained op log — the content format keeps membership
+ * events at the DCGKA layer, so these are NOT messages. Causal order; frames
+ * carry no clock, so the UI timestamps its own first observation.
+ */
+export async function membershipHistory(
+  convoId: string,
+): Promise<Array<{ opId: string; type: "create" | "add" | "remove"; actorDid: string; deviceDids: string[]; deviceFingerprints: string[] }>> {
+  if (!atsms || !convoId.startsWith("02")) return [];
+  const convo = await atsms.get(convoId);
+  if (convo === null) return [];
+  return convo.membershipLog().map((e) => ({
+    opId: e.opId,
+    type: e.type,
+    actorDid: e.actor.did,
+    deviceDids: e.devices.map((d) => d.did),
+    deviceFingerprints: e.devices.map((d) => bytesToHexLocal(d.fingerprint)),
+  }));
+}
+
+/** Current member devices (debug view): DID → device fingerprints in the group. */
+export async function memberDevices(convoId: string): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (!atsms || !convoId.startsWith("02")) return out;
+  const convo = await atsms.get(convoId);
+  if (convo === null) return out;
+  for (const [fp, did] of convo.inner.memberDevices) {
+    const list = out.get(did) ?? [];
+    list.push(fp);
+    out.set(did, list);
+  }
+  return out;
+}
+
+const bytesToHexLocal = (u: Uint8Array): string =>
+  Array.from(u, (b) => b.toString(16).padStart(2, "0")).join("");
+
 /** Remove a DID from a secure conversation (every device; admin only —
  *  strong remove, enforced by the engine). One-shot threads have no
  *  membership to manage. */
@@ -420,12 +458,14 @@ export async function getConversations(): Promise<AppConversation[]> {
     const lastMsg = transcript[transcript.length - 1];
     const lastMsgText = lastMsg === undefined ? "" : (textOf(lastMsg.content) ?? "");
 
-    const title = (convo.metadata as { title?: string } | undefined)?.title;
+    const meta = convo.metadata as { title?: string; removed?: boolean } | undefined;
+    const title = meta?.title;
     appConvos.push({
       id: convo.id,
       participantDids: convo.participantIds,
       participantHandles: handles,
       ...(title !== undefined ? { title } : {}),
+      ...(meta?.removed === true ? { removed: true } : {}),
       lastMessage: lastMsgText,
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,

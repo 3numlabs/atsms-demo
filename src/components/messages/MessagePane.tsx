@@ -7,10 +7,14 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { Avatar } from "@/components/ui/Avatar";
 import { CallButtons } from "@/components/call/CallButtons";
-import { removeMemberFromConversation } from "@/lib/atsms-bridge";
+import { memberDevices, membershipHistory, removeMemberFromConversation } from "@/lib/atsms-bridge";
 
 export function MessagePane() {
   const [showMembers, setShowMembers] = useState(false);
+  const [devices, setDevices] = useState<Map<string, string[]>>(new Map());
+  const [history, setHistory] = useState<
+    Array<{ opId: string; type: "create" | "add" | "remove"; actorDid: string; deviceDids: string[]; deviceFingerprints: string[] }>
+  >([]);
   const [memberError, setMemberError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
@@ -48,6 +52,14 @@ export function MessagePane() {
       loadMessages(activeConvoId);
     }
   }, [activeConvoId, loadMessages]);
+
+  // Membership history + per-DID device inventory (debug surface): both are
+  // derived from the engine, so they refresh whenever the roster changes.
+  useEffect(() => {
+    if (!activeConvoId || !showMembers) return;
+    void memberDevices(activeConvoId).then(setDevices);
+    void membershipHistory(activeConvoId).then(setHistory);
+  }, [activeConvoId, showMembers, convo?.participantDids.length]);
 
   const displayLabel = isGroup
     ? convo?.title || others.join(", ") || `${others.length + 1} people`
@@ -116,7 +128,7 @@ export function MessagePane() {
                   @{mHandle}
                   {isSelf && " (you)"}
                 </span>
-                {!isSelf && (
+                {!isSelf && !convo.removed && (
                   <button
                     type="button"
                     disabled={removing !== null}
@@ -125,11 +137,12 @@ export function MessagePane() {
                       setRemoving(mDid);
                       try {
                         await removeMemberFromConversation(convo.id, mDid);
-                      } catch (err: any) {
+                      } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
                         setMemberError(
-                          /Unauthorized/.test(err?.message ?? "")
+                          /Unauthorized/.test(message)
                             ? "Only a group admin can remove members."
-                            : err?.message || "Could not remove member",
+                            : message || "Could not remove member",
                         );
                       } finally {
                         setRemoving(null);
@@ -144,11 +157,44 @@ export function MessagePane() {
             );
           })}
           {memberError && <p className="text-xs text-red-400">{memberError}</p>}
+
+          {/* Debug: which devices of each DID are actually in the group. */}
+          {devices.size > 0 && (
+            <div className="pt-2 mt-1 border-t border-border/50 space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wide text-text-secondary/70">Devices in group</p>
+              {[...devices.entries()].map(([mDid, fps]) => (
+                <div key={mDid} className="text-[11px] text-text-secondary font-mono truncate">
+                  {mDid.slice(0, 20)}… → {fps.map((f) => f.slice(0, 8)).join(", ")}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Debug: membership history from the engine's retained op log. */}
+          {history.length > 0 && (
+            <div className="pt-2 mt-1 border-t border-border/50 space-y-0.5">
+              <p className="text-[10px] uppercase tracking-wide text-text-secondary/70">Membership history</p>
+              {history.map((e) => (
+                <div key={e.opId} className="text-[11px] text-text-secondary truncate">
+                  <span className={e.type === "remove" ? "text-red-400/80" : "text-text-secondary"}>{e.type}</span>{" "}
+                  {e.deviceFingerprints.map((f) => f.slice(0, 8)).join(", ")}
+                  {e.type !== "create" && ` · by ${e.actorDid.slice(-6)}`}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       <MessageList />
-      <MessageComposer />
+      {convo?.removed === true ? (
+        <div className="border-t border-border px-4 py-3 text-center text-sm text-text-secondary bg-main shrink-0">
+          You were removed from this conversation. You can still read what you
+          already had, but you can&apos;t send new messages.
+        </div>
+      ) : (
+        <MessageComposer />
+      )}
     </div>
   );
 }

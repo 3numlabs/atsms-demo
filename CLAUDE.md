@@ -49,9 +49,14 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - Phase 1: Onboarding + DM (done)
 - Phase 2: Video/audio calls via WebRTC (done)
 - Phase 3: Group chats — creation + group-aware display DONE (2026-08-03, ported from atsms-web at
-  its EOL; batched addMembers underneath). Remove-member UI DONE (member panel in the
-  group header; strong remove). Remaining: add-member-to-existing-group UI, in-band group-name sync,
-  group calls, leave()
+  its EOL; batched addMembers underneath). Remove-member UI DONE (member panel in the group header;
+  strong remove). Removal UX DONE: the removed device is notified by the protocol (the removal op is
+  sealed to it), so the composer is replaced by a read-only notice and `metadata.removed` survives
+  reload. Membership events render as system rows in the transcript — they are NOT messages (the
+  content format keeps membership at the DCGKA layer), so the client records its own first-observation
+  time in localStorage to interleave them; the authoritative causal-order history and the per-DID
+  device inventory live in the member panel (debug). Remaining: add-member-to-existing-group UI,
+  in-band group-name sync, group calls, leave()
 
 ## TODOs
 - Remove debug logging from webrtc-manager.ts once calling is stable.
