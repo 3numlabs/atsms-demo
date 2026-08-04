@@ -48,7 +48,9 @@ export function MessageComposer() {
       // Routed by the thread's pinned mode (secure conversation vs one-shot
       // notice) — never re-decided here.
       await sendMessage(convo.id, msgText);
-      // Remove the optimistic message — the real one arrives via the live feed
+      // The live feed's real message replaces the placeholder in place (see
+      // message-store.appendMessage). This only cleans up the case where it
+      // somehow never arrived, so it is a no-op in the normal path.
       removeMessage(optimisticId);
       await refresh();
     } catch (err: any) {

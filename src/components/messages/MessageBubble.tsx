@@ -67,7 +67,7 @@ export function MessageBubble({
             isOwn
               ? "bg-sent text-white"
               : "bg-surface text-text-primary"
-          } ${message.status === "sending" ? "opacity-60" : ""} ${message.status === "failed" ? "opacity-60" : ""}`}
+          } ${message.status === "sending" ? "opacity-60" : ""} ${message.status === "failed" ? "opacity-60" : ""} transition-opacity duration-150`}
         >
           {message.text}
         </div>

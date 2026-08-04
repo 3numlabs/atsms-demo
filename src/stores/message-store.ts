@@ -44,6 +44,22 @@ export const useMessageStore = create<MessageState>((set, get) => ({
       // already persisted and surface via the conversation list / on open.
       if (msg.convoId !== state.convoId) return state;
       if (state.messages.some((m) => m.id === msg.id)) return state;
+
+      // The sender's own message is persisted while send() is still running,
+      // so the real row arrives BEFORE the composer can retire its optimistic
+      // placeholder — which briefly showed the same message twice. Replace the
+      // placeholder in place instead: one bubble, which simply stops looking
+      // pending. (Derived message IDs mean the placeholder cannot be given the
+      // real ID up front, so it is matched on sender + text.)
+      const pending = state.messages.findIndex(
+        (m) => m.status === "sending" && m.senderId === msg.senderId && m.text === msg.text,
+      );
+      if (pending >= 0) {
+        const messages = [...state.messages];
+        messages[pending] = msg; // keeps its position — no reflow, no flicker
+        return { messages };
+      }
+
       const messages = [...state.messages, msg].sort(
         (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
       );
