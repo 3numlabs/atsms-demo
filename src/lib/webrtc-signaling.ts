@@ -11,7 +11,7 @@ import { getAtsms } from "./atsms-bridge";
 export async function sendWebRTCSignal(convoId: string, signal: CallSignal): Promise<void> {
   const atsms = getAtsms();
   if (!atsms) throw new Error("Not initialized");
-  const convo = await atsms.get(convoId);
+  const convo = await atsms.conversations.get(convoId);
   if (convo === null) throw new Error("Calls need an open conversation (DCGKA) — not available on this thread");
   await convo.send({ parts: [callPart(signal)], ephemeral: true });
 }

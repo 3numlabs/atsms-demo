@@ -261,7 +261,7 @@ export function connectLive(
   if (!atsms || !storage) throw new Error("ATSMS client not initialized");
   disconnectLive();
 
-  const sub = atsms.conversations$.subscribe((convos) => {
+  const sub = atsms.conversations.all$.subscribe((convos) => {
     onConversationUpdate();
     for (const convo of convos) {
       if (watchedConvos.has(convo.id)) continue;
@@ -320,16 +320,14 @@ export async function startSecureConversation(
   title?: string,
   kind: "dm" | "group" = recipientDids.length === 1 ? "dm" : "group",
 ): Promise<string> {
-  if (!atsms || !storage) throw new Error("Not initialized");
-  const convo = await atsms.open({ members: recipientDids, kind });
-  if (title !== undefined && title.trim() !== "") {
-    // Group name lives in the conversation record's metadata (local for now;
-    // in-band name sync is a later protocol feature).
-    const record = await storage.getConversation(convo.id);
-    if (record !== null) {
-      await storage.saveConversation({ ...record, metadata: { ...record.metadata, title: title.trim() } });
-    }
-  }
+  if (!atsms) throw new Error("Not initialized");
+  // Two verbs, because they are two different acts: the DM with someone always
+  // exists (asking twice gives the same one), while a group is made — and the
+  // same people may share several. The SDK stores the title.
+  const convo =
+    kind === "dm"
+      ? await atsms.conversations.with(recipientDids[0]!)
+      : await atsms.conversations.createGroup({ members: recipientDids, title });
   return convo.id;
 }
 
@@ -365,7 +363,7 @@ export async function membershipHistory(
   convoId: string,
 ): Promise<Array<{ opId: string; type: "create" | "add" | "remove"; actorDid: string; deviceDids: string[]; deviceFingerprints: string[] }>> {
   if (!atsms || !convoId.startsWith("02")) return [];
-  const convo = await atsms.get(convoId);
+  const convo = await atsms.conversations.get(convoId);
   if (convo === null) return [];
   return convo.membershipLog().map((e) => ({
     opId: e.opId,
@@ -395,7 +393,7 @@ export async function enrolMyDevice(
 /** Admin DIDs of a conversation — who may add, remove, and grant admin. */
 export async function conversationAdmins(convoId: string): Promise<string[]> {
   if (!atsms || !convoId.startsWith("02")) return [];
-  const convo = await atsms.get(convoId);
+  const convo = await atsms.conversations.get(convoId);
   return convo?.admins ?? [];
 }
 
@@ -403,7 +401,7 @@ export async function conversationAdmins(convoId: string): Promise<string[]> {
 export async function memberDevices(convoId: string): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   if (!atsms || !convoId.startsWith("02")) return out;
-  const convo = await atsms.get(convoId);
+  const convo = await atsms.conversations.get(convoId);
   if (convo === null) return out;
   for (const [fp, did] of convo.inner.memberDevices) {
     const list = out.get(did) ?? [];
@@ -425,19 +423,19 @@ const bytesToHexLocal = (u: Uint8Array): string =>
 export async function leaveConversation(convoId: string): Promise<void> {
   if (!atsms) throw new Error("Not initialized");
   if (!convoId.startsWith("02")) throw new Error("Notice threads have no membership to leave");
-  await atsms.leave(convoId);
+  await (await atsms.conversations.get(convoId))!.leave();
 }
 
 /** Grant admin to a member (admin-only) — the succession step before leaving. */
 export async function grantAdminTo(convoId: string, did: string): Promise<void> {
   if (!atsms) throw new Error("Not initialized");
-  await atsms.grantAdmin(convoId, did);
+  await (await atsms.conversations.get(convoId))!.grantAdmin(did);
 }
 
 /** Would leaving now strand the group (sole admin, others remain)? */
 export async function leavingWouldStrand(convoId: string): Promise<boolean> {
   if (!atsms || !convoId.startsWith("02")) return false;
-  const convo = await atsms.get(convoId);
+  const convo = await atsms.conversations.get(convoId);
   return convo?.wouldStrandGroup ?? false;
 }
 
@@ -447,7 +445,7 @@ export async function leavingWouldStrand(convoId: string): Promise<boolean> {
 export async function removeMemberFromConversation(convoId: string, did: string): Promise<void> {
   if (!atsms) throw new Error("Not initialized");
   if (!convoId.startsWith("02")) throw new Error("Notice threads have no members to manage");
-  await atsms.removeMember(convoId, did);
+  await (await atsms.conversations.get(convoId))!.removeMember(did);
 }
 
 /** Send into an existing thread, routed by its pinned mode. No fallback. */
@@ -455,7 +453,7 @@ export async function sendMessage(convoId: string, text: string): Promise<void> 
   if (!atsms || !storage || !currentDid) throw new Error("Not initialized");
 
   if (convoId.startsWith("02")) {
-    const convo = await atsms.get(convoId);
+    const convo = await atsms.conversations.get(convoId);
     if (convo === null) throw new Error("Conversation is not available on this device");
     await convo.send(text);
     return;
