@@ -50,7 +50,17 @@ export const useSystemEventStore = create<SystemEventState>((set, get) => ({
 
   record: (event) =>
     set((state) => {
-      if (state.events.some((e) => e.id === event.id)) return state;
+      const existing = state.events.find((e) => e.id === event.id);
+      // Upsert, don't insert-once. A membership run is often observed while it
+      // is still arriving (one add op of three), so the first text can be
+      // incomplete; a later sync sees the whole run and corrects it. The
+      // original observedAt is kept so the row does not jump in the timeline.
+      if (existing !== undefined) {
+        if (existing.text === event.text) return state;
+        const events = state.events.map((e) => (e.id === event.id ? { ...e, text: event.text } : e));
+        save(events);
+        return { events };
+      }
       const events = [...state.events, { ...event, observedAt: Date.now() }];
       save(events);
       return { events };

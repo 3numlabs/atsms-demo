@@ -3,7 +3,13 @@ import { AppShell } from "@/components/layout/AppShell";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useMessageStore } from "@/stores/message-store";
-import { connectLive, disconnectLive, membershipHistory, setSignalHandler } from "@/lib/atsms-bridge";
+import {
+  connectLive,
+  disconnectLive,
+  membershipHistory,
+  resolveHandleFromDid,
+  setSignalHandler,
+} from "@/lib/atsms-bridge";
 import { useSystemEventStore } from "@/stores/system-event-store";
 import { inboundCallSignals } from "@/lib/webrtc-signaling";
 import { handleSignalingMessage } from "@/lib/webrtc-manager";
@@ -79,7 +85,10 @@ export function ChatPage() {
             j += 1;
           }
           const devices = j - i + 1;
-          const who = handleFor(c, did) ?? `…${did.slice(-6)}`;
+          // Resolve from the cached DID→handle map, NOT the conversation's
+          // participant list: that list lags an add and excludes a removal, so
+          // the same event read differently depending on which side it was.
+          const who = did === "" ? "someone" : `@${await resolveHandleFromDid(did)}`;
           const suffix = devices > 1 ? ` (${devices} devices)` : "";
           recordSystemEvent({
             id: e.opId,
@@ -94,11 +103,6 @@ export function ChatPage() {
       }
     }
 
-    /** The handle we already resolved for this participant, if any. */
-    function handleFor(convo: { participantDids: string[]; participantHandles: string[] }, did: string): string | null {
-      const idx = convo.participantDids.indexOf(did);
-      return idx >= 0 ? `@${convo.participantHandles[idx]}` : null;
-    }
 
     return () => {
       mounted = false;
