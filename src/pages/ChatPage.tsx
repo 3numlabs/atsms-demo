@@ -57,17 +57,47 @@ export function ChatPage() {
       const convos = useConversationStore.getState().conversations;
       for (const c of convos) {
         if (!c.id.startsWith("02")) continue;
-        for (const e of await membershipHistory(c.id)) {
-          if (e.type === "create") continue; // the conversation itself, not an event
-          const who = e.deviceDids[0] ?? "someone";
-          const label = who.slice(-6);
+        const history = await membershipHistory(c.id);
+        // One row per PERSON, not per device op. Adding a DID with three
+        // devices mints three add ops; a reader wants "Bob joined", once. Runs
+        // of consecutive ops of the same type on the same DID are one event,
+        // keyed by the run's first op id so it stays stable across reloads.
+        let i = 0;
+        while (i < history.length) {
+          const e = history[i]!;
+          if (e.type === "create") {
+            i += 1;
+            continue; // the conversation itself, not an event
+          }
+          const did = e.deviceDids[0] ?? "";
+          let j = i;
+          while (
+            j + 1 < history.length &&
+            history[j + 1]!.type === e.type &&
+            (history[j + 1]!.deviceDids[0] ?? "") === did
+          ) {
+            j += 1;
+          }
+          const devices = j - i + 1;
+          const who = handleFor(c, did) ?? `…${did.slice(-6)}`;
+          const suffix = devices > 1 ? ` (${devices} devices)` : "";
           recordSystemEvent({
             id: e.opId,
             convoId: c.id,
-            text: e.type === "add" ? `…${label} was added to the conversation` : `…${label} was removed from the conversation`,
+            text:
+              e.type === "add"
+                ? `${who} was added to the conversation${suffix}`
+                : `${who} was removed from the conversation${suffix}`,
           });
+          i = j + 1;
         }
       }
+    }
+
+    /** The handle we already resolved for this participant, if any. */
+    function handleFor(convo: { participantDids: string[]; participantHandles: string[] }, did: string): string | null {
+      const idx = convo.participantDids.indexOf(did);
+      return idx >= 0 ? `@${convo.participantHandles[idx]}` : null;
     }
 
     return () => {
