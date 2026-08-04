@@ -41,7 +41,8 @@ export function ConversationItem({
   const fetchProfileByDid = useProfileStore((s) => s.fetchProfileByDid);
   const profiles = useProfileStore((s) => s.profiles);
 
-  const isGroup = conversation.participantDids.length > 2;
+  const isGroup =
+    conversation.kind !== undefined ? conversation.kind === "group" : conversation.participantDids.length > 2;
   const others = conversation.participantHandles.filter(
     (_, i) => conversation.participantDids[i] !== currentDid,
   );

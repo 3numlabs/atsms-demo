@@ -38,7 +38,9 @@ export function MessagePane() {
 
   const convo = conversations.find((c) => c.id === activeConvoId);
 
-  const isGroup = (convo?.participantDids.length ?? 0) > 2;
+  // Kind is fixed at creation; the count fallback is only for records that
+  // predate it (wiped before testing, so it should never be hit).
+  const isGroup = convo?.kind !== undefined ? convo.kind === "group" : (convo?.participantDids.length ?? 0) > 2;
   const others =
     convo?.participantHandles.filter(
       (_, i) => convo.participantDids[i] !== did,
@@ -130,6 +132,12 @@ export function MessagePane() {
 
       {/* Group member panel: roster + removal (admin-only; the engine rejects
           non-admin removes and the error is surfaced verbatim). */}
+      {showMembers && convo && !isGroup && (
+        <div className="border-b border-border bg-main px-4 py-2 text-[11px] text-text-secondary shrink-0">
+          A direct conversation is just the two of you — adding someone starts a
+          new group instead, and this one stays as it is.
+        </div>
+      )}
       {isGroup && showMembers && convo && (
         <div className="border-b border-border bg-main px-4 py-2 space-y-1 shrink-0">
           {convo.participantDids.map((mDid, i) => {

@@ -35,6 +35,9 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
   const [handle, setHandle] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [groupName, setGroupName] = useState("");
+  /** One person can still be a GROUP — a two-person group is a real thing,
+   *  distinct from the DM with that person. Explicit, never inferred. */
+  const [forceGroup, setForceGroup] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noticeOffer, setNoticeOffer] = useState<Member | null>(null);
@@ -118,10 +121,15 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
       }
       if (roster.length === 0) return;
 
-      const title = roster.length >= 2 ? groupName : undefined;
+      // One person and no name ⇒ the DM with them (reused if it exists).
+      // Naming it, or picking several people, means a group — a new one every
+      // time, since the same people may share any number of groups.
+      const wantsGroup = roster.length >= 2 || forceGroup;
+      const title = wantsGroup ? groupName : undefined;
       const convoId = await startSecureConversation(
         roster.map((m) => m.did),
         title,
+        wantsGroup ? "group" : "dm",
       );
       activateThread(convoId, roster, title);
     } catch (err: any) {
@@ -165,6 +173,7 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
     setHandle("");
     setMembers([]);
     setGroupName("");
+    setForceGroup(false);
     setError(null);
     setNoticeOffer(null);
   }
@@ -229,13 +238,22 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
           </Button>
         </div>
 
-        {members.length >= 2 && (
+        {(members.length >= 2 || forceGroup) && (
           <Input
             type="text"
             placeholder="Group name (optional)"
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
           />
+        )}
+        {members.length <= 1 && !forceGroup && (
+          <button
+            type="button"
+            className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+            onClick={() => setForceGroup(true)}
+          >
+            Make this a group instead (you can add more people later)
+          </button>
         )}
 
         {noticeOffer && (
@@ -276,7 +294,7 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
               loading={loading && handle.trim() === ""}
               disabled={members.length === 0 && !handle.trim()}
             >
-              {members.length >= 2 ? "Create Group" : "Start Chat"}
+              {members.length >= 2 || forceGroup ? "Create Group" : "Start Chat"}
             </Button>
           </div>
         )}

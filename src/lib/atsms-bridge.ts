@@ -318,9 +318,10 @@ export async function reachabilityOf(did: string): Promise<Reachability> {
 export async function startSecureConversation(
   recipientDids: string[],
   title?: string,
+  kind: "dm" | "group" = recipientDids.length === 1 ? "dm" : "group",
 ): Promise<string> {
   if (!atsms || !storage) throw new Error("Not initialized");
-  const convo = await atsms.open({ members: recipientDids });
+  const convo = await atsms.open({ members: recipientDids, kind });
   if (title !== undefined && title.trim() !== "") {
     // Group name lives in the conversation record's metadata (local for now;
     // in-band name sync is a later protocol feature).
@@ -490,7 +491,9 @@ export async function getConversations(): Promise<AppConversation[]> {
     const lastMsg = transcript[transcript.length - 1];
     const lastMsgText = lastMsg === undefined ? "" : (textOf(lastMsg.content) ?? "");
 
-    const meta = convo.metadata as { title?: string; removed?: boolean; left?: boolean } | undefined;
+    const meta = convo.metadata as
+      | { title?: string; removed?: boolean; left?: boolean; kind?: "dm" | "group" }
+      | undefined;
     const title = meta?.title;
     appConvos.push({
       id: convo.id,
@@ -499,6 +502,7 @@ export async function getConversations(): Promise<AppConversation[]> {
       ...(title !== undefined ? { title } : {}),
       ...(meta?.removed === true ? { removed: true } : {}),
       ...(meta?.left === true ? { left: true } : {}),
+      ...(meta?.kind !== undefined ? { kind: meta.kind } : {}),
       lastMessage: lastMsgText,
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,

@@ -4,6 +4,9 @@ export interface AppConversation {
   participantHandles: string[];
   /** Group name (metadata.title) — set for named groups, absent for DMs. */
   title?: string;
+  /** Fixed at creation — NEVER inferred from participant count (a group that
+   *  shrinks to two is still a group; a DM is its two people, forever). */
+  kind?: "dm" | "group";
   /** This device was removed from the conversation — render read-only. */
   removed?: boolean;
   /** …and it left of its own accord (a different story to tell). */
