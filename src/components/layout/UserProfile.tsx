@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { Avatar } from "@/components/ui/Avatar";
 import { fetchProfile } from "@/lib/atsms-bridge";
+import { MyDevices } from "./MyDevices";
 
 export function UserProfile() {
   const handle = useAuthStore((s) => s.handle);
@@ -10,6 +11,7 @@ export function UserProfile() {
   const avatarUrl = useAuthStore((s) => s.avatarUrl);
   const setProfile = useAuthStore((s) => s.setProfile);
   const fetched = useRef(false);
+  const [showDevices, setShowDevices] = useState(false);
 
   useEffect(() => {
     if (!did || fetched.current) return;
@@ -24,6 +26,8 @@ export function UserProfile() {
   }, [did, setProfile]);
 
   return (
+    <>
+    <MyDevices open={showDevices} onClose={() => setShowDevices(false)} />
     <div className="p-3 border-t border-border shrink-0">
       <div className="flex items-center gap-2.5 min-w-0">
         <Avatar name={handle || "?"} size={32} imageUrl={avatarUrl} />
@@ -36,8 +40,16 @@ export function UserProfile() {
           <p className="text-xs text-text-secondary truncate">
             @{handle}
           </p>
+          <button
+            type="button"
+            className="text-[11px] text-text-secondary hover:text-text-primary transition-colors"
+            onClick={() => setShowDevices(true)}
+          >
+            My devices
+          </button>
         </div>
       </div>
     </div>
+    </>
   );
 }

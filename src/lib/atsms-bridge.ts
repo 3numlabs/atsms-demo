@@ -376,6 +376,22 @@ export async function membershipHistory(
   }));
 }
 
+/** My account's devices, and which of my conversations each is missing from. */
+export async function myDevices(): Promise<
+  Array<{ fingerprint: string; isThisDevice: boolean; capable: boolean; reason?: string; missingFrom: string[] }>
+> {
+  if (!atsms) throw new Error("Not initialized");
+  return atsms.myDevices();
+}
+
+/** Add one of MY other devices to the conversations it is missing from. */
+export async function enrolMyDevice(
+  fingerprint: string,
+): Promise<{ enrolled: string[]; skipped: Array<{ convoId: string; reason: string }> }> {
+  if (!atsms) throw new Error("Not initialized");
+  return atsms.enrolDevice(fingerprint);
+}
+
 /** Admin DIDs of a conversation — who may add, remove, and grant admin. */
 export async function conversationAdmins(convoId: string): Promise<string[]> {
   if (!atsms || !convoId.startsWith("02")) return [];
