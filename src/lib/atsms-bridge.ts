@@ -375,6 +375,13 @@ export async function membershipHistory(
   }));
 }
 
+/** Admin DIDs of a conversation — who may add, remove, and grant admin. */
+export async function conversationAdmins(convoId: string): Promise<string[]> {
+  if (!atsms || !convoId.startsWith("02")) return [];
+  const convo = await atsms.get(convoId);
+  return convo?.admins ?? [];
+}
+
 /** Current member devices (debug view): DID → device fingerprints in the group. */
 export async function memberDevices(convoId: string): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();

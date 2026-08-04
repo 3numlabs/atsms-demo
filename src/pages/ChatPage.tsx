@@ -60,6 +60,7 @@ export function ChatPage() {
     }
 
     async function syncSystemEvents(): Promise<void> {
+      const myDid = did;
       const convos = useConversationStore.getState().conversations;
       for (const c of convos) {
         if (!c.id.startsWith("02")) continue;
@@ -90,13 +91,21 @@ export function ChatPage() {
           // the same event read differently depending on which side it was.
           const who = did === "" ? "someone" : `@${await resolveHandleFromDid(did)}`;
           const suffix = devices > 1 ? ` (${devices} devices)` : "";
+          // Who did it. A removal whose actor IS the subject is someone
+          // leaving of their own accord — a different sentence entirely.
+          const byMe = e.actorDid === myDid;
+          const actor = byMe ? "You" : `@${await resolveHandleFromDid(e.actorDid)}`;
+          const subjectIsActor = e.actorDid === did;
+          const subject = did === myDid ? "You" : who;
           recordSystemEvent({
             id: e.opId,
             convoId: c.id,
             text:
               e.type === "add"
-                ? `${who} was added to the conversation${suffix}`
-                : `${who} was removed from the conversation${suffix}`,
+                ? `${subject} ${subject === "You" ? "were" : "was"} added by ${actor}${suffix}`
+                : subjectIsActor
+                  ? `${subject} left the conversation${suffix}`
+                  : `${subject} ${subject === "You" ? "were" : "was"} removed by ${actor}${suffix}`,
           });
           i = j + 1;
         }

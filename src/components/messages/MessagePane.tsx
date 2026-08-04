@@ -8,6 +8,7 @@ import { useProfileStore } from "@/stores/profile-store";
 import { Avatar } from "@/components/ui/Avatar";
 import { CallButtons } from "@/components/call/CallButtons";
 import {
+  conversationAdmins,
   grantAdminTo,
   leaveConversation,
   leavingWouldStrand,
@@ -26,6 +27,7 @@ export function MessagePane() {
   const [removing, setRemoving] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [wouldStrand, setWouldStrand] = useState(false);
+  const [admins, setAdmins] = useState<string[]>([]);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
   const setActive = useConversationStore((s) => s.setActive);
@@ -69,6 +71,7 @@ export function MessagePane() {
     void memberDevices(activeConvoId).then(setDevices);
     void membershipHistory(activeConvoId).then(setHistory);
     void leavingWouldStrand(activeConvoId).then(setWouldStrand);
+    void conversationAdmins(activeConvoId).then(setAdmins);
   }, [activeConvoId, showMembers, convo?.participantDids.length]);
 
   const displayLabel = isGroup
@@ -133,11 +136,34 @@ export function MessagePane() {
             const mHandle = convo.participantHandles[i];
             const isSelf = mDid === did;
             return (
-              <div key={mDid} className="flex items-center justify-between text-xs">
+              <div key={mDid} className="flex items-center justify-between gap-2 text-xs">
                 <span className="text-text-secondary truncate">
                   @{mHandle}
                   {isSelf && " (you)"}
+                  {admins.includes(mDid) && (
+                    <span className="ml-1 text-[10px] uppercase tracking-wide text-accent/80">admin</span>
+                  )}
                 </span>
+                <span className="flex items-center gap-2 shrink-0">
+                {/* Only an admin may promote, and only a non-admin can be promoted. */}
+                {!convo.removed && did !== null && admins.includes(did) && !admins.includes(mDid) && (
+                  <button
+                    type="button"
+                    className="text-accent/90 hover:text-accent transition-colors"
+                    onClick={async () => {
+                      setMemberError(null);
+                      try {
+                        await grantAdminTo(convo.id, mDid);
+                        setAdmins(await conversationAdmins(convo.id));
+                        setWouldStrand(await leavingWouldStrand(convo.id));
+                      } catch (err) {
+                        setMemberError(err instanceof Error ? err.message : String(err));
+                      }
+                    }}
+                  >
+                    Make admin
+                  </button>
+                )}
                 {!isSelf && !convo.removed && (
                   <button
                     type="button"
@@ -163,6 +189,7 @@ export function MessagePane() {
                     {removing === mDid ? "Removing…" : "Remove"}
                   </button>
                 )}
+                </span>
               </div>
             );
           })}
@@ -174,29 +201,9 @@ export function MessagePane() {
               {wouldStrand ? (
                 <>
                   <p className="text-[11px] text-yellow-400/90">
-                    You are the only admin. Make someone else an admin before leaving, or nobody
-                    could add or remove members again.
+                    You are the only admin — use “Make admin” above before leaving, or nobody could
+                    add or remove members again.
                   </p>
-                  {convo.participantDids.map((mDid, i) =>
-                    mDid === did ? null : (
-                      <button
-                        key={mDid}
-                        type="button"
-                        className="block text-xs text-accent hover:underline"
-                        onClick={async () => {
-                          setMemberError(null);
-                          try {
-                            await grantAdminTo(convo.id, mDid);
-                            setWouldStrand(await leavingWouldStrand(convo.id));
-                          } catch (err) {
-                            setMemberError(err instanceof Error ? err.message : String(err));
-                          }
-                        }}
-                      >
-                        Make @{convo.participantHandles[i]} an admin
-                      </button>
-                    ),
-                  )}
                 </>
               ) : (
                 <button
