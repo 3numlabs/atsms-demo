@@ -392,6 +392,31 @@ export async function memberDevices(convoId: string): Promise<Map<string, string
 const bytesToHexLocal = (u: Uint8Array): string =>
   Array.from(u, (b) => b.toString(16).padStart(2, "0")).join("");
 
+/**
+ * Leave a conversation: every device of this DID is removed, no healing update
+ * (the leaver cannot mint an epoch that excludes it — the remaining members
+ * heal on their next send). Refuses if this is the sole admin with others
+ * still in the group; appoint a successor with `grantAdminTo` first.
+ */
+export async function leaveConversation(convoId: string): Promise<void> {
+  if (!atsms) throw new Error("Not initialized");
+  if (!convoId.startsWith("02")) throw new Error("Notice threads have no membership to leave");
+  await atsms.leave(convoId);
+}
+
+/** Grant admin to a member (admin-only) — the succession step before leaving. */
+export async function grantAdminTo(convoId: string, did: string): Promise<void> {
+  if (!atsms) throw new Error("Not initialized");
+  await atsms.grantAdmin(convoId, did);
+}
+
+/** Would leaving now strand the group (sole admin, others remain)? */
+export async function leavingWouldStrand(convoId: string): Promise<boolean> {
+  if (!atsms || !convoId.startsWith("02")) return false;
+  const convo = await atsms.get(convoId);
+  return convo?.wouldStrandGroup ?? false;
+}
+
 /** Remove a DID from a secure conversation (every device; admin only —
  *  strong remove, enforced by the engine). One-shot threads have no
  *  membership to manage. */
@@ -458,7 +483,7 @@ export async function getConversations(): Promise<AppConversation[]> {
     const lastMsg = transcript[transcript.length - 1];
     const lastMsgText = lastMsg === undefined ? "" : (textOf(lastMsg.content) ?? "");
 
-    const meta = convo.metadata as { title?: string; removed?: boolean } | undefined;
+    const meta = convo.metadata as { title?: string; removed?: boolean; left?: boolean } | undefined;
     const title = meta?.title;
     appConvos.push({
       id: convo.id,
@@ -466,6 +491,7 @@ export async function getConversations(): Promise<AppConversation[]> {
       participantHandles: handles,
       ...(title !== undefined ? { title } : {}),
       ...(meta?.removed === true ? { removed: true } : {}),
+      ...(meta?.left === true ? { left: true } : {}),
       lastMessage: lastMsgText,
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,

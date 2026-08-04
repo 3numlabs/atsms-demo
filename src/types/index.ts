@@ -6,6 +6,8 @@ export interface AppConversation {
   title?: string;
   /** This device was removed from the conversation — render read-only. */
   removed?: boolean;
+  /** …and it left of its own accord (a different story to tell). */
+  left?: boolean;
   lastMessage?: string;
   lastMessageAt?: Date;
   unreadCount: number;

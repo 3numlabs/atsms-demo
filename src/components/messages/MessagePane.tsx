@@ -7,7 +7,14 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { Avatar } from "@/components/ui/Avatar";
 import { CallButtons } from "@/components/call/CallButtons";
-import { memberDevices, membershipHistory, removeMemberFromConversation } from "@/lib/atsms-bridge";
+import {
+  grantAdminTo,
+  leaveConversation,
+  leavingWouldStrand,
+  memberDevices,
+  membershipHistory,
+  removeMemberFromConversation,
+} from "@/lib/atsms-bridge";
 
 export function MessagePane() {
   const [showMembers, setShowMembers] = useState(false);
@@ -17,6 +24,8 @@ export function MessagePane() {
   >([]);
   const [memberError, setMemberError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [wouldStrand, setWouldStrand] = useState(false);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
   const setActive = useConversationStore((s) => s.setActive);
@@ -59,6 +68,7 @@ export function MessagePane() {
     if (!activeConvoId || !showMembers) return;
     void memberDevices(activeConvoId).then(setDevices);
     void membershipHistory(activeConvoId).then(setHistory);
+    void leavingWouldStrand(activeConvoId).then(setWouldStrand);
   }, [activeConvoId, showMembers, convo?.participantDids.length]);
 
   const displayLabel = isGroup
@@ -158,6 +168,65 @@ export function MessagePane() {
           })}
           {memberError && <p className="text-xs text-red-400">{memberError}</p>}
 
+          {/* Leaving, and the succession it may require first. */}
+          {!convo.removed && (
+            <div className="pt-2 mt-1 border-t border-border/50 space-y-1">
+              {wouldStrand ? (
+                <>
+                  <p className="text-[11px] text-yellow-400/90">
+                    You are the only admin. Make someone else an admin before leaving, or nobody
+                    could add or remove members again.
+                  </p>
+                  {convo.participantDids.map((mDid, i) =>
+                    mDid === did ? null : (
+                      <button
+                        key={mDid}
+                        type="button"
+                        className="block text-xs text-accent hover:underline"
+                        onClick={async () => {
+                          setMemberError(null);
+                          try {
+                            await grantAdminTo(convo.id, mDid);
+                            setWouldStrand(await leavingWouldStrand(convo.id));
+                          } catch (err) {
+                            setMemberError(err instanceof Error ? err.message : String(err));
+                          }
+                        }}
+                      >
+                        Make @{convo.participantHandles[i]} an admin
+                      </button>
+                    ),
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  disabled={leaving}
+                  className="text-xs text-red-400/80 hover:text-red-400 disabled:opacity-50 transition-colors"
+                  onClick={async () => {
+                    setMemberError(null);
+                    setLeaving(true);
+                    try {
+                      await leaveConversation(convo.id);
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : String(err);
+                      setMemberError(
+                        /LastAdmin/.test(message)
+                          ? "Make someone else an admin before you leave."
+                          : message,
+                      );
+                      setWouldStrand(await leavingWouldStrand(convo.id));
+                    } finally {
+                      setLeaving(false);
+                    }
+                  }}
+                >
+                  {leaving ? "Leaving…" : "Leave conversation"}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Debug: which devices of each DID are actually in the group. */}
           {devices.size > 0 && (
             <div className="pt-2 mt-1 border-t border-border/50 space-y-0.5">
@@ -189,8 +258,9 @@ export function MessagePane() {
       <MessageList />
       {convo?.removed === true ? (
         <div className="border-t border-border px-4 py-3 text-center text-sm text-text-secondary bg-main shrink-0">
-          You were removed from this conversation. You can still read what you
-          already had, but you can&apos;t send new messages.
+          {convo.left === true
+            ? "You left this conversation. Your history stays here, but you can't send new messages."
+            : "You were removed from this conversation. You can still read what you already had, but you can't send new messages."}
         </div>
       ) : (
         <MessageComposer />
