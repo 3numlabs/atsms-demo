@@ -4,6 +4,7 @@ import { ChatPage } from "@/pages/ChatPage";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUIStore } from "@/stores/ui-store";
 import { Spinner } from "@/components/ui/Spinner";
+import { WelcomeNotice, hasAcknowledgedNotice } from "@/components/WelcomeNotice";
 
 // Detect OAuth callback synchronously at module load — this prevents
 // the LoginPage from flashing before the callback is processed.
@@ -28,6 +29,12 @@ export function App() {
   const [initializing, setInitializing] = useState(
     HAS_OAUTH_CALLBACK || !!sessionStorage.getItem("atsms_oauth_did"),
   );
+
+  // First-run notice: what this demo is, and what it is not. Shown before the
+  // login page, since two of its points (a real identity gets real records, the
+  // relay sees delivery metadata) matter BEFORE someone signs in. An OAuth
+  // callback skips it — they acknowledged it on the way out.
+  const [noticeAck, setNoticeAck] = useState(HAS_OAUTH_CALLBACK || hasAcknowledgedNotice());
 
   // Prevent re-entrancy from React StrictMode double-invoking effects
   const initStartedRef = useRef(false);
@@ -72,6 +79,10 @@ export function App() {
 
     init();
   }, [setStep, setError]);
+
+  if (!noticeAck) {
+    return <WelcomeNotice onAcknowledge={() => setNoticeAck(true)} />;
+  }
 
   if (initializing) {
     return (
