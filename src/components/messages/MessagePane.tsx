@@ -14,6 +14,9 @@ import {
   leavingWouldStrand,
   memberDevices,
   membershipHistory,
+  messageSenders,
+  pendingMembers,
+  reinviteMember,
   removeMemberFromConversation,
 } from "@/lib/atsms-bridge";
 
@@ -28,6 +31,12 @@ export function MessagePane() {
   const [leaving, setLeaving] = useState(false);
   const [wouldStrand, setWouldStrand] = useState(false);
   const [admins, setAdmins] = useState<string[]>([]);
+  // §8.2: who may never have received their invitation, and who has joined but
+  // never said anything. Different facts — the first is a delivery question the
+  // protocol can answer, the second is just behaviour.
+  const [pending, setPending] = useState<string[]>([]);
+  const [senders, setSenders] = useState<Set<string>>(new Set());
+  const [reinviting, setReinviting] = useState<string | null>(null);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
   const setActive = useConversationStore((s) => s.setActive);
@@ -74,6 +83,8 @@ export function MessagePane() {
     void membershipHistory(activeConvoId).then(setHistory);
     void leavingWouldStrand(activeConvoId).then(setWouldStrand);
     void conversationAdmins(activeConvoId).then(setAdmins);
+    void pendingMembers(activeConvoId).then(setPending);
+    void messageSenders(activeConvoId).then(setSenders);
   }, [activeConvoId, showMembers, convo?.participantDids.length]);
 
   const displayLabel = isGroup
@@ -151,6 +162,27 @@ export function MessagePane() {
                   {admins.includes(mDid) && (
                     <span className="ml-1 text-[10px] uppercase tracking-wide text-accent/80">admin</span>
                   )}
+                  {!isSelf && pending.includes(mDid) && (
+                    <span
+                      className="ml-1 text-[10px] uppercase tracking-wide text-amber-400/90"
+                      title={
+                        "On the roster, but nothing has ever been heard from them — not even the update a " +
+                        "device sends when it joins. Their invitation may never have arrived. Nothing is " +
+                        "acknowledged at this layer, so this looks identical to someone who is simply quiet " +
+                        "or who declined."
+                      }
+                    >
+                      invited
+                    </span>
+                  )}
+                  {!isSelf && !pending.includes(mDid) && !senders.has(mDid) && (
+                    <span
+                      className="ml-1 text-[10px] uppercase tracking-wide text-text-secondary/60"
+                      title="Joined and reading: their device is in the group and has sent protocol traffic, but no messages."
+                    >
+                      lurking
+                    </span>
+                  )}
                 </span>
                 <span className="flex items-center gap-2 shrink-0">
                 {/* Only an admin may promote, and only a non-admin can be promoted. */}
@@ -170,6 +202,27 @@ export function MessagePane() {
                     }}
                   >
                     Make admin
+                  </button>
+                )}
+                {!isSelf && !convo.removed && pending.includes(mDid) && (
+                  <button
+                    type="button"
+                    disabled={reinviting !== null}
+                    title="Re-send their admission material: the original create for a founding member, a freshly rebuilt welcome for a later joiner."
+                    onClick={async () => {
+                      setMemberError(null);
+                      setReinviting(mDid);
+                      try {
+                        await reinviteMember(convo.id, mDid);
+                      } catch (err) {
+                        setMemberError(err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setReinviting(null);
+                      }
+                    }}
+                    className="text-accent/90 hover:text-accent disabled:opacity-50 transition-colors"
+                  >
+                    {reinviting === mDid ? "Re-inviting…" : "Re-invite"}
                   </button>
                 )}
                 {!isSelf && !convo.removed && (

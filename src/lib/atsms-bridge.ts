@@ -397,6 +397,39 @@ export async function conversationAdmins(convoId: string): Promise<string[]> {
   return convo?.admins ?? [];
 }
 
+/**
+ * Who in this conversation may never have received their invitation
+ * (ordering-auth §8.2): on the roster, never heard from at all — not one
+ * frame, not even the mandatory update a device sends on joining.
+ *
+ * Silence is the ONLY evidence available, because a create/welcome is never
+ * acknowledged, and it is ambiguous on purpose: it also covers someone quiet
+ * and someone who refused. Show it as "invited", never "delivery failed".
+ */
+export async function pendingMembers(convoId: string): Promise<string[]> {
+  if (!atsms || !convoId.startsWith("02")) return [];
+  const convo = await atsms.conversations.get(convoId);
+  return convo?.pendingMembers ?? [];
+}
+
+/** Re-send a pending member's admission material (§8.2): the original create
+ *  for a founding member, a rebuilt welcome for a later joiner. A deliberate
+ *  user action — retrying automatically would chase whoever declined. */
+export async function reinviteMember(convoId: string, did: string): Promise<void> {
+  if (!atsms) throw new Error("ATSMS client not initialized");
+  const convo = await atsms.conversations.get(convoId);
+  if (convo === null) throw new Error("conversation not found");
+  await convo.reinvite(did);
+}
+
+/** DIDs that have sent at least one message here. A member absent from this set
+ *  but present in the roster (and not pending) has joined and is reading only —
+ *  a distinction the protocol cannot see, since it is derived from content. */
+export async function messageSenders(convoId: string): Promise<Set<string>> {
+  if (!storage) return new Set();
+  return new Set((await storage.getMessages(convoId, 500)).map((m) => m.senderId));
+}
+
 /** Current member devices (debug view): DID → device fingerprints in the group. */
 export async function memberDevices(convoId: string): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
