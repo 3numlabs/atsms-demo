@@ -228,7 +228,16 @@ export function MessagePane() {
                       try {
                         await reinviteMember(convo.id, mDid);
                       } catch (err) {
-                        setMemberError(err instanceof Error ? err.message : String(err));
+                        const message = err instanceof Error ? err.message : String(err);
+                        // The one failure worth translating: their keys moved on
+                        // while we were away, so no re-invitation can reach them.
+                        setMemberError(
+                          /re-keyed-device/.test(message)
+                            ? `@${mHandle} has rejoined with new keys since they were invited — usually after ` +
+                                `clearing their app's data. Re-inviting cannot reach them: remove them, then ` +
+                                `add them again.`
+                            : message,
+                        );
                       } finally {
                         setReinviting(null);
                       }
