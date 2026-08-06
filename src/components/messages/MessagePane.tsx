@@ -15,6 +15,7 @@ import {
   memberDevices,
   membershipHistory,
   messageSenders,
+  pendingDevices,
   pendingMembers,
   reinviteMember,
   removeMemberFromConversation,
@@ -36,6 +37,7 @@ export function MessagePane() {
   // protocol can answer, the second is just behaviour.
   const [pending, setPending] = useState<string[]>([]);
   const [senders, setSenders] = useState<Set<string>>(new Set());
+  const [pendingFps, setPendingFps] = useState<string[]>([]);
   const [reinviting, setReinviting] = useState<string | null>(null);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
@@ -90,6 +92,7 @@ export function MessagePane() {
       void leavingWouldStrand(activeConvoId).then(setWouldStrand);
       void conversationAdmins(activeConvoId).then(setAdmins);
       void pendingMembers(activeConvoId).then(setPending);
+      void pendingDevices(activeConvoId).then(setPendingFps);
       void messageSenders(activeConvoId).then(setSenders);
     };
     refresh();
@@ -214,7 +217,7 @@ export function MessagePane() {
                     Make admin
                   </button>
                 )}
-                {!isSelf && !convo.removed && pending.includes(mDid) && (
+                {!isSelf && !convo.removed && (devices.get(mDid) ?? []).some((f) => pendingFps.includes(f)) && (
                   <button
                     type="button"
                     disabled={reinviting !== null}
@@ -311,7 +314,16 @@ export function MessagePane() {
               <p className="text-[10px] uppercase tracking-wide text-text-secondary/70">Devices in group</p>
               {[...devices.entries()].map(([mDid, fps]) => (
                 <div key={mDid} className="text-[11px] text-text-secondary font-mono truncate">
-                  {mDid.slice(0, 20)}… → {fps.map((f) => f.slice(0, 8)).join(", ")}
+                  {mDid.slice(0, 20)}… →{" "}
+                  {fps.map((f, i) => (
+                    <span key={f} title={pendingFps.includes(f) ? "This device has never been heard from" : undefined}>
+                      {i > 0 && ", "}
+                      <span className={pendingFps.includes(f) ? "text-amber-400/90" : undefined}>
+                        {f.slice(0, 8)}
+                        {pendingFps.includes(f) && "·"}
+                      </span>
+                    </span>
+                  ))}
                 </div>
               ))}
             </div>

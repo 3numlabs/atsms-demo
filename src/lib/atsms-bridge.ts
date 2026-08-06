@@ -412,6 +412,15 @@ export async function pendingMembers(convoId: string): Promise<string[]> {
   return convo?.pendingMembers ?? [];
 }
 
+/** Member devices never heard from (fingerprint hex). One whose OWNER is not in
+ *  pendingMembers is stranded: that person is here on another device, but this
+ *  one may never have received its admission material — the phone in a drawer. */
+export async function pendingDevices(convoId: string): Promise<string[]> {
+  if (!atsms || !convoId.startsWith("02")) return [];
+  const convo = await atsms.conversations.get(convoId);
+  return convo?.pendingDevices ?? [];
+}
+
 /** Re-send a pending member's admission material (§8.2): the original create
  *  for a founding member, a rebuilt welcome for a later joiner. A deliberate
  *  user action — retrying automatically would chase whoever declined. */
