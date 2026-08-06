@@ -41,6 +41,7 @@ export function MessagePane() {
   const conversations = useConversationStore((s) => s.conversations);
   const setActive = useConversationStore((s) => s.setActive);
   const loadMessages = useMessageStore((s) => s.loadMessages);
+  const messageCount = useMessageStore((s) => s.messages.length);
   const did = useAuthStore((s) => s.did);
   const profiles = useProfileStore((s) => s.profiles);
   const fetchProfileByDid = useProfileStore((s) => s.fetchProfileByDid);
@@ -75,17 +76,26 @@ export function MessagePane() {
     }
   }, [activeConvoId, loadMessages]);
 
-  // Membership history + per-DID device inventory (debug surface): both are
-  // derived from the engine, so they refresh whenever the roster changes.
+  // Membership history + per-DID device inventory + who we have heard from: all
+  // derived from the engine, so the panel has to re-ask. A new message is one
+  // trigger, but not the only one — a member's first sign of life is often a
+  // control frame (their healing update), which changes no visible state at all.
+  // So poll while the panel is open. It is a local read, and this is a debug
+  // surface: a few seconds of staleness reads as a bug, as it did live.
   useEffect(() => {
     if (!activeConvoId || !showMembers) return;
-    void memberDevices(activeConvoId).then(setDevices);
-    void membershipHistory(activeConvoId).then(setHistory);
-    void leavingWouldStrand(activeConvoId).then(setWouldStrand);
-    void conversationAdmins(activeConvoId).then(setAdmins);
-    void pendingMembers(activeConvoId).then(setPending);
-    void messageSenders(activeConvoId).then(setSenders);
-  }, [activeConvoId, showMembers, convo?.participantDids.length]);
+    const refresh = () => {
+      void memberDevices(activeConvoId).then(setDevices);
+      void membershipHistory(activeConvoId).then(setHistory);
+      void leavingWouldStrand(activeConvoId).then(setWouldStrand);
+      void conversationAdmins(activeConvoId).then(setAdmins);
+      void pendingMembers(activeConvoId).then(setPending);
+      void messageSenders(activeConvoId).then(setSenders);
+    };
+    refresh();
+    const timer = setInterval(refresh, 3000);
+    return () => clearInterval(timer);
+  }, [activeConvoId, showMembers, convo?.participantDids.length, messageCount]);
 
   const displayLabel = isGroup
     ? convo?.title || others.join(", ") || `${others.length + 1} people`
