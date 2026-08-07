@@ -9,6 +9,10 @@ import { Avatar } from "@/components/ui/Avatar";
 import { CallButtons } from "@/components/call/CallButtons";
 import {
   conversationAdmins,
+  GROUP_NAME_BYTE_LIMIT,
+  groupName,
+  nameByteLength,
+  renameGroup,
   grantAdminTo,
   leaveConversation,
   leavingWouldStrand,
@@ -39,6 +43,10 @@ export function MessagePane() {
   const [senders, setSenders] = useState<Set<string>>(new Set());
   const [pendingFps, setPendingFps] = useState<string[]>([]);
   const [reinviting, setReinviting] = useState<string | null>(null);
+  const [sharedName, setSharedName] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const activeConvoId = useConversationStore((s) => s.activeConvoId);
   const conversations = useConversationStore((s) => s.conversations);
   const setActive = useConversationStore((s) => s.setActive);
@@ -93,6 +101,7 @@ export function MessagePane() {
       void conversationAdmins(activeConvoId).then(setAdmins);
       void pendingMembers(activeConvoId).then(setPending);
       void pendingDevices(activeConvoId).then(setPendingFps);
+      void groupName(activeConvoId).then(setSharedName);
       void messageSenders(activeConvoId).then(setSenders);
     };
     refresh();
@@ -164,6 +173,79 @@ export function MessagePane() {
       )}
       {isGroup && showMembers && convo && (
         <div className="border-b border-border bg-main px-4 py-2 space-y-1 shrink-0">
+          {/* The group's name is shared state: renaming changes it for everyone,
+              and only an admin may. The cap is BYTES, so the counter is too. */}
+          <div className="flex items-center justify-between gap-2 pb-1 text-xs">
+            {renaming ? (
+              <>
+                <input
+                  autoFocus
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  placeholder="Group name"
+                  className="flex-1 min-w-0 bg-surface border border-border rounded px-2 py-1 text-text-primary"
+                />
+                <span
+                  className={
+                    nameByteLength(draftName) > GROUP_NAME_BYTE_LIMIT
+                      ? "text-red-400 shrink-0"
+                      : "text-text-secondary/60 shrink-0"
+                  }
+                  title="The limit is 64 bytes, not characters — accented, CJK and emoji characters cost more than one."
+                >
+                  {nameByteLength(draftName)}/{GROUP_NAME_BYTE_LIMIT}
+                </span>
+                <button
+                  type="button"
+                  disabled={savingName || nameByteLength(draftName) > GROUP_NAME_BYTE_LIMIT}
+                  className="text-accent/90 hover:text-accent disabled:opacity-50 shrink-0"
+                  onClick={async () => {
+                    setMemberError(null);
+                    setSavingName(true);
+                    try {
+                      await renameGroup(convo.id, draftName);
+                      setSharedName(await groupName(convo.id));
+                      setRenaming(false);
+                    } catch (err) {
+                      const message = err instanceof Error ? err.message : String(err);
+                      setMemberError(
+                        /Unauthorized/.test(message) ? "Only a group admin can rename this group." : message,
+                      );
+                    } finally {
+                      setSavingName(false);
+                    }
+                  }}
+                >
+                  {savingName ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="text-text-secondary hover:text-text-primary shrink-0"
+                  onClick={() => setRenaming(false)}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-text-secondary truncate">
+                  {sharedName ?? <span className="italic text-text-secondary/60">No shared name</span>}
+                </span>
+                {!convo.removed && did !== null && admins.includes(did) && (
+                  <button
+                    type="button"
+                    className="text-accent/90 hover:text-accent shrink-0"
+                    onClick={() => {
+                      setDraftName(sharedName ?? "");
+                      setRenaming(true);
+                    }}
+                  >
+                    Rename
+                  </button>
+                )}
+              </>
+            )}
+          </div>
           {convo.participantDids.map((mDid, i) => {
             const mHandle = convo.participantHandles[i];
             const isSelf = mDid === did;

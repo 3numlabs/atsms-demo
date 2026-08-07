@@ -412,6 +412,29 @@ export async function pendingMembers(convoId: string): Promise<string[]> {
   return convo?.pendingMembers ?? [];
 }
 
+/** The group's shared name (group-state.md) — what every member sees. */
+export async function groupName(convoId: string): Promise<string | null> {
+  if (!atsms || !convoId.startsWith("02")) return null;
+  const convo = await atsms.conversations.get(convoId);
+  return convo?.name ?? null;
+}
+
+/** Rename the group for everyone (admin-only). Capped at 64 BYTES. */
+export async function renameGroup(convoId: string, name: string): Promise<void> {
+  if (!atsms) throw new Error("ATSMS client not initialized");
+  const convo = await atsms.conversations.get(convoId);
+  if (convo === null) throw new Error("conversation not found");
+  await convo.rename(name);
+}
+
+/** UTF-8 length — the group-name cap is bytes, so a UI must count bytes: 64 is
+ *  ~64 Latin characters but ~21 CJK or ~16 emoji. */
+export function nameByteLength(name: string): number {
+  return new TextEncoder().encode(name).length;
+}
+
+export const GROUP_NAME_BYTE_LIMIT = 64;
+
 /** Member devices never heard from (fingerprint hex). One whose OWNER is not in
  *  pendingMembers is stranded: that person is here on another device, but this
  *  one may never have received its admission material — the phone in a drawer. */
