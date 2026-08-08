@@ -57,7 +57,7 @@ export function MessageComposer() {
       console.error("Failed to send message:", err);
       const message = err?.message || "Failed to send";
       const errorText = message.includes("no published endpoint certificates")
-        ? "This user hasn't set up AT-SMS yet"
+        ? "This user hasn't set up ATSMS yet"
         : message;
       updateMessage(optimisticId, { status: "failed", errorText });
     } finally {

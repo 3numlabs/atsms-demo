@@ -62,7 +62,7 @@ export function NewConversation({ open, onClose }: NewConversationProps) {
 
     if (reachability === "unreachable") {
       setError(
-        `@${cleanHandle} hasn't set up AT-SMS yet — nothing can be delivered to them.`,
+        `@${cleanHandle} hasn't set up ATSMS yet — nothing can be delivered to them.`,
       );
       return null;
     }

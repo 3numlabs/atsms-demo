@@ -1,4 +1,4 @@
-# AT-SMS Demo
+# ATSMS Demo
 
 Slack-like E2E encrypted messaging demo on AT Protocol.
 
@@ -28,7 +28,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - OAuth client metadata: `public/client-metadata.json`
 
 ## Architecture
-- `src/lib/` - core logic (OAuth, passkey-PRF, AT-SMS bridge, WebRTC manager, constants)
+- `src/lib/` - core logic (OAuth, passkey-PRF, ATSMS bridge, WebRTC manager, constants)
 - `src/stores/` - Zustand stores (auth, conversations, messages, UI, calls, profiles)
 - `src/components/` - React components (layout, onboarding, conversations, messages, call, ui primitives)
 - `src/pages/` - route pages (Login, Chat)

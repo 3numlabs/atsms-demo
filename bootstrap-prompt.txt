@@ -1,0 +1,36 @@
+atsms-demo is web app with the sole purpose of demonstrating atsms messaging system.
+
+There are two ATSMS components you will need to familiarize yourself with.
+The Typescript library can be found at ../atsms-lib
+ - It contains the libraries for creating an endpoint public/private keypair and x509 certificate.
+ - It also contains the client libraries for registering this certificate on the AT Protocol users PDS.
+../atsms-worker contains the API for accessing the atsms inbox and endpoint for sending messages This server API is documented in ../atsms-lib/README-API.md
+
+You will need to enlist the skills of a top tier product designer to build a clean UI that defaults to dark mode. The app should resemble using Slack with support for both group conversations and direct messages with just one user. Create clean crisp nice looking place holders for all UI visual assets. (including things sech as a favicon)
+
+Onboarding should first check the local web storage to see if the user has already authenticated to the PDS (checking for the auth tokens.) and also also check to see if it has initialized atsms client.
+
+If it hasn't, it should perform OAuth authentication after asking for the users @handle
+(It will need to lookup the handle to perform the OAuth with the users PDS) If the user had registered an at.atsms.x509 cert, then we don't need to authenticate with the PDS, chat features don't require an authnticated session with the PDS
+
+Once the user has authenticated with their PDS the first time, the app should initialize the atsms client.
+
+Part of initializing the atsms client, app should create the private key used to create the certificate using passkey-prf. With passkey-prf the user is asked to authenticate using passkey, and it results in key that can be used to derive a private key.
+
+Once the client has been initialized, it should connect to the atsmsm worker to retrieve the atsms messages. Atsms supports three types of messages. atsms, atsms-email, and raw email. This initial version only needs to support atsms messages.
+
+The primary features of the app are:
+ - Send / Receive DM
+ - Start / Answer a video call with another AT Protocol user. Calls should use WebRTC and use Google public ICE/TURN servers
+ - Create a group chat, with multiple participants
+ - Add people to the group
+
+ Phase 1 should support onboarding, and DM
+ Phase 2 add call support
+ Phase 3 Group chats
+
+ You are product owner for a market leading app, if there any requirements that need to be specified, interview me to determine the detail
+
+ Once the product requirements are finalized, build the app.
+ The webapp will be hosted on Cloudflare and written in Typescript.
+ Pick the best cloudflare option (pages/worker/...) for this type of app.

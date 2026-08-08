@@ -1,12 +1,12 @@
-# AT-SMS Demo
+# ATSMS Demo
 
 A Slack-like, end-to-end encrypted messaging demo built on the AT Protocol.
 
-Demonstrates the AT-SMS messaging system: identity via AT Protocol, X.509 certificates per device, S/MIME encryption, real-time delivery via WebSocket, and WebRTC audio/video calls — all over the AT-SMS encrypted transport.
+Demonstrates the ATSMS messaging system: identity via AT Protocol, X.509 certificates per device, S/MIME encryption, real-time delivery via WebSocket, and WebRTC audio/video calls — all over the ATSMS encrypted transport.
 
 ## Features
 
-- **Direct messaging** — Encrypted DMs to any AT Protocol user with a registered AT-SMS certificate
+- **Direct messaging** — Encrypted DMs to any AT Protocol user with a registered ATSMS certificate
 - **Audio/video calls** — WebRTC calls with mute, camera toggle, and full-screen UI
 - **Slack-inspired dark UI** — Conversation sidebar, message pane, mobile-friendly layout
 - **Bluesky profile integration** — Avatars and display names fetched from the public AT Protocol API
@@ -44,7 +44,7 @@ src/
 ├── lib/                    Core logic
 │   ├── atsms-bridge.ts    Facade over @atsms/sms
 │   ├── webrtc-manager.ts  WebRTC peer connection and signaling
-│   ├── webrtc-signaling.ts AT-SMS message wrapper for WebRTC payloads
+│   ├── webrtc-signaling.ts ATSMS message wrapper for WebRTC payloads
 │   ├── passkey-prf.ts     Passkey-PRF key derivation (mocked on localhost)
 │   ├── oauth.ts           BrowserOAuthClient setup
 │   └── constants.ts
@@ -73,7 +73,7 @@ src/
 4. After OAuth, the app derives a P-256 private key from a passkey using the WebAuthn PRF extension
 5. If a matching X.509 certificate already exists on the user's PDS, it is reused
 6. Otherwise, a new certificate is generated with the derived key and stored on the PDS at `at.atsms.x509`
-7. The app connects to the AT-SMS worker via WebSocket and is ready to chat
+7. The app connects to the ATSMS worker via WebSocket and is ready to chat
 
 On localhost, the passkey step is mocked because WebAuthn does not work over `127.0.0.1`. The rest of the flow (OAuth, cert generation, message exchange, WebRTC calls) is real.
 
