@@ -18,10 +18,3 @@ meta.client_uri = origin;
 meta.redirect_uris = [`${origin}/callback`];
 writeFileSync(path, JSON.stringify(meta, null, 2) + "\n");
 console.log(`stamped ${path} for ${origin}`);
-
-// The Pages-style _redirects file is for the demo.atsms.at Pages deploy; the
-// worker-assets deploy handles SPA fallback natively and rejects it.
-if (existsSync("dist/_redirects")) {
-  rmSync("dist/_redirects");
-  console.log("removed dist/_redirects (worker-assets deploy)");
-}

@@ -14,7 +14,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - React 19, Vite 8, TypeScript 6, Tailwind CSS v4, Zustand
 - `@atsms/client` (linked from `../atsms/packages/client`) for crypto, storage, transport
 - `@atproto/oauth-client-browser` for AT Protocol OAuth
-- Hosted on Cloudflare Pages at `demo.atsms.at`
+- Deployed as a Cloudflare Worker serving static assets (`wrangler.jsonc`); `bun run deploy:dev`
 
 ## Commands
 - `bun install` - install dependencies
@@ -23,8 +23,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 - `bun run preview` - preview production build
 
 ## Config
-- Worker API: `https://atsms-api-dev.3numlabs.workers.dev`
-- Email domain: `demo.atsms.at`
+- Relay and mailto: domain come from `.env` (`VITE_ATSMS_API_URL`, `VITE_ATSMS_EMAIL_DOMAIN`) — required, no defaults
 - OAuth client metadata: `public/client-metadata.json`
 
 ## Architecture
@@ -61,5 +60,4 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 ## TODOs
 - Remove debug logging from webrtc-manager.ts once calling is stable.
 - Add real passkey-PRF support for production (currently mocked on localhost).
-- Deploy to demo.atsms.at via Cloudflare Pages.
 - Real unread tracking, ringtone for incoming calls, message read receipts, typing indicators, file/image attachments.

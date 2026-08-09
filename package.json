@@ -1,6 +1,8 @@
 {
   "name": "atsms-demo",
   "private": true,
+  "license": "Apache-2.0",
+  "author": "3NUM",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -8,7 +10,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy:dev": "bun run build && bun scripts/stamp-client-metadata.ts https://atsms-demo-dev.3numlabs.workers.dev && bunx wrangler deploy"
+    "deploy:dev": "VITE_ATSMS_API_URL=https://atsms-api-dev.3numlabs.workers.dev VITE_ATSMS_EMAIL_DOMAIN=demo.atsms.at bun run build && bun scripts/stamp-client-metadata.ts https://atsms-demo-dev.3numlabs.workers.dev && bunx wrangler deploy"
   },
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.3.41",

@@ -1,31 +1,45 @@
 # ATSMS Demo
 
-A Slack-like, end-to-end encrypted messaging demo built on the AT Protocol.
+A Slack-like, end-to-end encrypted messaging demo on AT Protocol identities — the browser reference
+client for [ATSMS](https://github.com/3numlabs), and the easiest way to see the protocol work.
 
-Demonstrates the ATSMS messaging system: identity via AT Protocol, X.509 certificates per device, S/MIME encryption, real-time delivery via WebSocket, and WebRTC audio/video calls — all over the ATSMS encrypted transport.
+**A proof of concept.** The cryptography has not been independently reviewed, and everything lives in
+your browser: clear the site data and the messages are gone, because no server holds a readable copy.
+The app says so before you sign in.
 
 ## Features
 
-- **Direct messaging** — Encrypted DMs to any AT Protocol user with a registered ATSMS certificate
-- **Audio/video calls** — WebRTC calls with mute, camera toggle, and full-screen UI
-- **Slack-inspired dark UI** — Conversation sidebar, message pane, mobile-friendly layout
-- **Bluesky profile integration** — Avatars and display names fetched from the public AT Protocol API
+- **Direct messages and groups** — encrypted with the group key agreement, so adding or removing someone
+  rotates keys immediately and a removed member cannot read what follows
+- **Audio and video calls** — WebRTC, with setup signalled over the same encrypted channel
+- **Several devices per account** — authorize a second device from one you already have, and your
+  conversations include it from then on
+- **Shared group state** — a group's name is agreed by every member, not a label on one device
+- **Membership you can inspect** — who has joined, who has never been heard from, and a way to re-send
+  admission material to someone whose invitation may have been lost
+- **Slack-inspired dark UI** — conversation sidebar, message pane, mobile-friendly layout
+- **Bluesky profile integration** — avatars and display names from the public AT Protocol API
 
 ## Stack
 
 - React 19 + Vite 8 + TypeScript 6
 - Tailwind CSS v4
 - Zustand state management
-- `@atsms/client` library (linked from `../atsms/packages/client`) for crypto, storage, and transport
+- `@atsms/client` (linked from `../atsms/packages/client`) for crypto, storage, and transport
 - `@atproto/oauth-client-browser` for AT Protocol OAuth
-- Cloudflare Pages hosting
+- Deployed as a Cloudflare Worker serving static assets
 
 ## Getting Started
 
 ```bash
 bun install
+cp .env.example .env      # then fill in the relay and mailto: domain
 bun run dev
 ```
+
+**Both values in `.env` are required and have no default.** A relay learns who receives mail and when, so
+which one a deployment uses is a choice its operator makes; the build fails rather than silently
+inheriting ours. Run the reference relay (`atsms-worker`) yourself, or point at one you trust.
 
 The dev server runs on `http://127.0.0.1:5173`. (The IP address is required because the AT Protocol OAuth loopback flow redirects there. Localhost is fine for the rest of the app.)
 
@@ -35,7 +49,13 @@ The dev server runs on `http://127.0.0.1:5173`. (The IP address is required beca
 bun run build
 ```
 
-Output goes to `dist/`. Deploy to Cloudflare Pages with the build directory as `dist/` and SPA fallback enabled (`public/_redirects` handles this).
+Output goes to `dist/`. The deploy target is a Cloudflare Worker serving those assets with SPA fallback,
+configured in `wrangler.jsonc`; `bun run deploy:dev` builds, stamps `client-metadata.json` with the
+deploy origin, and pushes it.
+
+The stamping matters: AT Protocol OAuth requires the client metadata to be served *at* its own
+`client_id` URL with same-origin redirect URIs, so each deployment origin gets written in at deploy
+time. The copy in `public/` is a template.
 
 ## Architecture
 
