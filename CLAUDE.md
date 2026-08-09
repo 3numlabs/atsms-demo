@@ -3,10 +3,9 @@
 Slack-like E2E encrypted messaging demo on AT Protocol.
 
 > **Ported to the v2 message format (2026-08-01).** Runs on the `ATSMS` client over the v2 CBOR
-> content format (umbrella `docs/message-format.md`). Thread mode is DELIBERATE (sdk-shape.md
-> Part A): secure conversation (DCGKA) or one-shot notice thread (X509), chosen via
+> content format (`atsms/spec/message-format.md`). Thread mode is DELIBERATE: secure conversation (DCGKA) or one-shot notice thread (X509), chosen via
 > `atsms.reachability()` in the new-conversation flow, pinned per thread — no silent fallback. Call signaling is ephemeral `call` parts via `onSignal` — never
-> persisted, which retires the replay workarounds documented in `docs/webrtc-over-atsms.md`.
+> persisted, which retires the replay workarounds documented in `atsms/docs/history/webrtc-over-atsms.md`.
 > Calls require a DCGKA conversation (one-shot threads are text-only). Not yet re-verified live
 > against the deployed worker after the port.
 
