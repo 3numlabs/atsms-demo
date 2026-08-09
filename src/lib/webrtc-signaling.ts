@@ -5,7 +5,7 @@
  * conversation; X509 one-shot threads have no session to signal over.
  */
 
-import { callPart, type CallSignal, convoIdToHex, KIND_CALL, type MessageContent } from "@atsms/sms";
+import { callPart, type CallSignal, convoIdToHex, KIND_CALL, type MessageContent } from "@atsms/client";
 import { getAtsms } from "./atsms-bridge";
 
 export async function sendWebRTCSignal(convoId: string, signal: CallSignal): Promise<void> {

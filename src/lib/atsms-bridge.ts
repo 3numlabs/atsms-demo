@@ -1,5 +1,5 @@
 /**
- * Bridge between the React app and the `@atsms/sms` v2 client (`ATSMS`):
+ * Bridge between the React app and the `@atsms/client` v2 client (`ATSMS`):
  * boot/wiring, live subscriptions, and the AppMessage/AppConversation
  * mapping. Mode selection is DELIBERATE (sdk-shape.md Part A): a thread is
  * either a secure conversation (DCGKA — forward secrecy, sealed sender,
@@ -28,7 +28,7 @@ import {
   type StorageAdapter,
   textOf,
   transcriptMessages,
-} from "@atsms/sms";
+} from "@atsms/client";
 import { ATSMS_API_URL, EMAIL_DOMAIN, PLC_DIRECTORY_URL } from "./constants";
 import { deriveP256PrivateKeyPEM } from "./passkey-prf";
 import type { AppConversation, AppMessage } from "@/types";

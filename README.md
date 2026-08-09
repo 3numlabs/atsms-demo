@@ -16,7 +16,7 @@ Demonstrates the ATSMS messaging system: identity via AT Protocol, X.509 certifi
 - React 19 + Vite 8 + TypeScript 6
 - Tailwind CSS v4
 - Zustand state management
-- `@atsms/sms` library (linked from `../atsms-lib`) for crypto, storage, and transport
+- `@atsms/client` library (linked from `../atsms-lib`) for crypto, storage, and transport
 - `@atproto/oauth-client-browser` for AT Protocol OAuth
 - Cloudflare Pages hosting
 
@@ -42,7 +42,7 @@ Output goes to `dist/`. Deploy to Cloudflare Pages with the build directory as `
 ```
 src/
 ├── lib/                    Core logic
-│   ├── atsms-bridge.ts    Facade over @atsms/sms
+│   ├── atsms-bridge.ts    Facade over @atsms/client
 │   ├── webrtc-manager.ts  WebRTC peer connection and signaling
 │   ├── webrtc-signaling.ts ATSMS message wrapper for WebRTC payloads
 │   ├── passkey-prf.ts     Passkey-PRF key derivation (mocked on localhost)

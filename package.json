@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.3.41",
-    "@atsms/sms": "file:../atsms-lib",
     "nanoid": "^5.1.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router": "7",
-    "zustand": "^5.0.12"
+    "zustand": "^5.0.12",
+    "@atsms/client": "file:../atsms/packages/client"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

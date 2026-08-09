@@ -12,7 +12,7 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
 
 ## Stack
 - React 19, Vite 8, TypeScript 6, Tailwind CSS v4, Zustand
-- `@atsms/sms` (linked from `../atsms-lib`) for crypto, storage, transport
+- `@atsms/client` (linked from `../atsms-lib`) for crypto, storage, transport
 - `@atproto/oauth-client-browser` for AT Protocol OAuth
 - Hosted on Cloudflare Pages at `demo.atsms.at`
 

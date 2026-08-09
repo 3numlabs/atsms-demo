@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ATSMSEndpointCertificate } from "@atsms/sms";
+import type { ATSMSEndpointCertificate } from "@atsms/client";
 import { clearStoredData } from "@/lib/passkey-prf";
 
 interface AuthState {

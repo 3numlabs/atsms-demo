@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import { generateJWT } from "@atsms/sms";
+import { generateJWT } from "@atsms/client";
 import { useCallStore } from "@/stores/call-store";
 import { sendWebRTCSignal, type InboundSignal } from "./webrtc-signaling";
 import { resolveHandleFromDid, getCurrentDid, getEndpointCert } from "./atsms-bridge";
