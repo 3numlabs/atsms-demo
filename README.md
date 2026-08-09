@@ -16,7 +16,7 @@ Demonstrates the ATSMS messaging system: identity via AT Protocol, X.509 certifi
 - React 19 + Vite 8 + TypeScript 6
 - Tailwind CSS v4
 - Zustand state management
-- `@atsms/client` library (linked from `../atsms-lib`) for crypto, storage, and transport
+- `@atsms/client` library (linked from `../atsms/packages/client`) for crypto, storage, and transport
 - `@atproto/oauth-client-browser` for AT Protocol OAuth
 - Cloudflare Pages hosting
 
