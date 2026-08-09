@@ -4,8 +4,8 @@
 concept; external cryptographic review is a gating requirement before any of it carries real traffic,
 and it has not happened yet. Do not use this to protect anything that matters.
 
-The full policy, the known-issues list, and the review brief live with the protocol engine:
-[atsms-dcgka `SECURITY.md`](../atsms-dcgka/SECURITY.md).
+The full policy, the list of known issues, and the brief we would hand a security reviewer live with the
+protocol, in the `atsms` repository.
 
 ## Reporting a vulnerability
 
