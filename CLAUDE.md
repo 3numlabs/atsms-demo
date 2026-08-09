@@ -53,8 +53,10 @@ Slack-like E2E encrypted messaging demo on AT Protocol.
   reload. Membership events render as system rows in the transcript — they are NOT messages (the
   content format keeps membership at the DCGKA layer), so the client records its own first-observation
   time in localStorage to interleave them; the authoritative causal-order history and the per-DID
-  device inventory live in the member panel (debug). Remaining: add-member-to-existing-group UI,
-  in-band group-name sync, group calls, leave()
+  device inventory live in the member panel (debug). Add-member-to-existing-group UI DONE, along with
+  the pending/joined distinction and re-sending admission material (`/reinvite`'s equivalent) to a
+  member never heard from. Shared group name DONE (agreed in-band via the `setState` op, namespace
+  `at.atsms.group.name`). Remaining: group calls, leave()
 
 ## TODOs
 - Remove debug logging from webrtc-manager.ts once calling is stable.
