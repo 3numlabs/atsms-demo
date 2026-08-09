@@ -28,9 +28,13 @@ async function getIceServers(): Promise<RTCIceServer[]> {
   }
 
   try {
+    // The JWT subject is keyed by DEVICE FINGERPRINT — the at.atsms.x509 record
+    // key — not the certificate serial. Passing the serial mints a token whose
+    // `sub` names a record that does not exist, so the relay's JWT verification
+    // fails and this endpoint answers 401 (integration §8.5 re-keying).
     const jwt = await generateJWT(
       cert.certificatePrivateKeyPEM,
-      cert.serialNumber,
+      await cert.getDeviceFingerprint(),
       did,
     );
 
