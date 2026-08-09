@@ -99,12 +99,13 @@ On localhost, the passkey step is mocked because WebAuthn does not work over `12
 
 ## Documentation
 
-- [`webrtc-over-atsms.md`](./webrtc-over-atsms.md) — Lessons learned implementing WebRTC calling over an E2E encrypted message transport
-- [`turn-cloudflare.md`](./turn-cloudflare.md) — Proposal for replacing static TURN credentials with an authenticated Cloudflare TURN credential service (when present)
-- [`CLAUDE.md`](./CLAUDE.md) — Architecture notes and TODOs
+- [`CLAUDE.md`](./CLAUDE.md) — architecture notes and TODOs
+- [`SECURITY.md`](./SECURITY.md) — what this demo does and does not protect, and how to report a flaw
+- The protocol itself — specifications, record schemas, the engine and the client SDK — is in the
+  [`atsms`](https://github.com/3numlabs/atsms) repository. The relay this app talks to is
+  [`atsms-worker`](https://github.com/3numlabs/atsms-worker).
 
 ## Status
 
-- **Phase 1** (Onboarding + DM) — done
-- **Phase 2** (Video/audio calls via WebRTC) — done
-- **Phase 3** (Group chats) — not started
+Direct messages, groups, and one-to-one calls all work; this is what the proof of concept set out to
+show. Group calls are not built, and neither are attachments, read receipts, or typing indicators.
