@@ -113,7 +113,16 @@ export function WelcomeNotice({ onAcknowledge }: { onAcknowledge: () => void }) 
           <p className="mt-2 text-text-secondary">
             Developers who want to test a client against a working ATSMS implementation, and anyone curious
             how a decentralized encrypted messenger fits together. If that's you, the source and the
-            specifications are open.
+            specifications are open —{" "}
+            <a
+              href="https://atsms.at"
+              target="_blank"
+              rel="noreferrer"
+              className="text-accent hover:underline"
+            >
+              atsms.at
+            </a>{" "}
+            is the way in.
           </p>
 
           <button
