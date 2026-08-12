@@ -26,3 +26,22 @@ export const APP_URL = window.location.origin;
 export const OAUTH_CLIENT_METADATA_URL = `${APP_URL}/client-metadata.json`;
 export const OAUTH_CALLBACK_URL = `${APP_URL}/callback`;
 export const PLC_DIRECTORY_URL = "https://plc.directory";
+
+/**
+ * OAuth scope — the least the demo can ask for. It reads, writes and deletes
+ * records in exactly three collections; profiles come from the public Bluesky
+ * API and need no auth. `atproto` is the required base scope, and each
+ * collection is named: prefix wildcards (`at.atsms.*`) are not permitted.
+ *
+ * Was `atproto transition:generic` — full read/write over the entire
+ * repository, far more than a messaging demo should hold.
+ *
+ * The repeated-query-parameter form is what the authorization server accepts
+ * for multiple collections; three separate `repo:<nsid>` scopes are rejected
+ * (the PDS 401s the record write). Granular scopes are live on bsky.social but
+ * still stabilizing upstream, so keep `public/client-metadata.json` identical
+ * to this string and re-verify sign-in against a real account after changing
+ * either. Verified live 2026-08-12.
+ */
+export const OAUTH_SCOPE =
+  "atproto repo?collection=at.atsms.x509&collection=at.atsms.prekey&collection=at.atsms.inbox";

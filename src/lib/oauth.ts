@@ -2,7 +2,7 @@ import {
   BrowserOAuthClient,
   buildLoopbackClientId,
 } from "@atproto/oauth-client-browser";
-import { APP_URL } from "./constants";
+import { APP_URL, OAUTH_SCOPE } from "./constants";
 
 let oauthClient: BrowserOAuthClient | null = null;
 
@@ -17,7 +17,7 @@ export async function getOAuthClient(): Promise<BrowserOAuthClient> {
   if (isDev) {
     // Build loopback client_id with scope included
     const baseClientId = buildLoopbackClientId(window.location);
-    const clientId = baseClientId + "&scope=" + encodeURIComponent("atproto transition:generic");
+    const clientId = baseClientId + "&scope=" + encodeURIComponent(OAUTH_SCOPE);
 
     oauthClient = new BrowserOAuthClient({
       handleResolver: "https://bsky.social",
@@ -26,7 +26,7 @@ export async function getOAuthClient(): Promise<BrowserOAuthClient> {
         redirect_uris: [
           `http://${window.location.hostname}:${window.location.port}/` as any,
         ],
-        scope: "atproto transition:generic",
+        scope: OAUTH_SCOPE,
         response_types: ["code"],
         grant_types: ["authorization_code", "refresh_token"],
         token_endpoint_auth_method: "none",
@@ -48,6 +48,6 @@ export async function startOAuthFlow(handle: string): Promise<void> {
   const client = await getOAuthClient();
   await client.signIn(handle, {
     signal: new AbortController().signal,
-    scope: "atproto transition:generic",
+    scope: OAUTH_SCOPE,
   });
 }
