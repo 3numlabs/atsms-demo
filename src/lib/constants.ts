@@ -38,7 +38,10 @@ export const PLC_DIRECTORY_URL = "https://plc.directory";
  *
  * The repeated-query-parameter form is what the authorization server accepts
  * for multiple collections; three separate `repo:<nsid>` scopes are rejected
- * (the PDS 401s the record write). Granular scopes are live on bsky.social but
+ * (the PDS 401s the record write). A prefix wildcard (`collection=at.atsms.*`)
+ * is worse than either: the consent screen then shows no repository permission
+ * at all, so the grant is dropped silently rather than refused. Name every
+ * collection. Granular scopes are live on bsky.social but
  * still stabilizing upstream, so keep `public/client-metadata.json` identical
  * to this string and re-verify sign-in against a real account after changing
  * either. Verified live 2026-08-12.
