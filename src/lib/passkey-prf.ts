@@ -117,12 +117,33 @@ function base64urlToBuffer(base64url: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-export async function registerPasskey(
-  did: string,
-): Promise<{ credentialId: string; prfOutput: ArrayBuffer }> {
-  const salt = await computeSalt(did);
+// How much we ask of create(), most to least. Some WebKit builds (iOS Safari,
+// every iOS browser) throw DataError ("Data provided to an operation does not
+// meet requirements") when the prf extension carries an eval at registration,
+// even though they can evaluate PRF in a later assertion. Persisted so that if
+// a create() attempt consumes the user gesture before we can retry, the next
+// tap starts on the rung that works on this browser.
+type PrfCreateMode = "eval" | "enable" | "bare";
+const PRF_CREATE_MODE_KEY = "atsms_prf_create_mode";
+const PRF_MODES: PrfCreateMode[] = ["eval", "enable", "bare"];
 
-  const credential = (await navigator.credentials.create({
+function prfCreateExtensions(mode: PrfCreateMode, salt: Uint8Array): object | undefined {
+  if (mode === "eval") return { prf: { eval: { first: salt } } };
+  if (mode === "enable") return { prf: {} };
+  return undefined; // bare — no extension; derivation happens in the assertion
+}
+
+function isDataError(e: unknown): boolean {
+  return e instanceof DOMException &&
+    (e.name === "DataError" || e.name === "NotSupportedError");
+}
+
+async function createCredential(
+  did: string,
+  salt: Uint8Array,
+  mode: PrfCreateMode,
+): Promise<PublicKeyCredential> {
+  return (await navigator.credentials.create({
     publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
       rp: {
@@ -139,15 +160,40 @@ export async function registerPasskey(
         residentKey: "required",
         userVerification: "required",
       },
-      extensions: {
-        prf: {
-          eval: {
-            first: salt,
-          },
-        },
-      } as any,
+      extensions: prfCreateExtensions(mode, salt) as any,
     },
   })) as PublicKeyCredential;
+}
+
+export async function registerPasskey(
+  did: string,
+): Promise<{ credentialId: string; prfOutput: ArrayBuffer }> {
+  const salt = await computeSalt(did);
+
+  // Start from the rung this browser last succeeded past (or the top).
+  const startMode =
+    (localStorage.getItem(PRF_CREATE_MODE_KEY) as PrfCreateMode | null) ?? "eval";
+  let credential: PublicKeyCredential | null = null;
+  let mode = startMode;
+
+  for (const m of PRF_MODES.slice(PRF_MODES.indexOf(startMode))) {
+    mode = m;
+    try {
+      credential = await createCredential(did, salt, m);
+      break;
+    } catch (e) {
+      if (isDataError(e) && m !== "bare") {
+        // This create() never reached an authenticator, so no credential was
+        // made — safe to retry one rung down. Remember the rung in case the
+        // retry loses the user gesture and the user has to tap again.
+        localStorage.setItem(PRF_CREATE_MODE_KEY, PRF_MODES[PRF_MODES.indexOf(m) + 1]);
+        continue;
+      }
+      throw e;
+    }
+  }
+  if (!credential) throw new Error("Passkey registration failed.");
+  localStorage.setItem(PRF_CREATE_MODE_KEY, mode);
 
   const extResults = (credential.getClientExtensionResults() as any);
   const credentialId = bufferToBase64url(credential.rawId);
@@ -160,19 +206,21 @@ export async function registerPasskey(
     };
   }
 
-  // Security keys (YubiKey et al.) and some passkey providers CANNOT evaluate
-  // PRF during registration — CTAP hmac-secret only produces output at
-  // assertion time, so create() returns `enabled: true` and no results. The
-  // credential now exists and supports PRF; derive with an immediate
-  // assertion against it. Costs the user a second touch, which is the
-  // standard flow for security-key PRF.
-  if (extResults?.prf?.enabled === true) {
+  // Two cases land here, both resolved by an immediate assertion against the
+  // fresh credential:
+  //  - security keys (YubiKey et al.): CTAP hmac-secret only evaluates at
+  //    assertion time, so create() returns enabled: true and no results;
+  //  - WebKit "bare" mode: the extension never reached create(), but iCloud
+  //    Keychain passkeys can still evaluate PRF in an assertion.
+  // Costs the user a second touch, the standard flow for security-key PRF.
+  if (extResults?.prf?.enabled === true || mode === "bare") {
     return authenticatePasskey(did, credentialId);
   }
 
   throw new Error(
     "Your browser or authenticator does not support the PRF extension. " +
-    "ATSMS requires this feature for key derivation.",
+    "ATSMS requires this feature for key derivation. " +
+    `(registration mode: ${mode})`,
   );
 }
 
