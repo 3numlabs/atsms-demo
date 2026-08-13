@@ -150,18 +150,30 @@ export async function registerPasskey(
   })) as PublicKeyCredential;
 
   const extResults = (credential.getClientExtensionResults() as any);
-  if (!extResults?.prf?.results?.first) {
-    throw new Error(
-      "Your browser or authenticator does not support the PRF extension. " +
-      "ATSMS requires this feature for key derivation.",
-    );
+  const credentialId = bufferToBase64url(credential.rawId);
+
+  // Platform authenticators can evaluate PRF at registration; take it.
+  if (extResults?.prf?.results?.first) {
+    return {
+      credentialId,
+      prfOutput: extResults.prf.results.first,
+    };
   }
 
-  const credentialId = bufferToBase64url(credential.rawId);
-  return {
-    credentialId,
-    prfOutput: extResults.prf.results.first,
-  };
+  // Security keys (YubiKey et al.) and some passkey providers CANNOT evaluate
+  // PRF during registration — CTAP hmac-secret only produces output at
+  // assertion time, so create() returns `enabled: true` and no results. The
+  // credential now exists and supports PRF; derive with an immediate
+  // assertion against it. Costs the user a second touch, which is the
+  // standard flow for security-key PRF.
+  if (extResults?.prf?.enabled === true) {
+    return authenticatePasskey(did, credentialId);
+  }
+
+  throw new Error(
+    "Your browser or authenticator does not support the PRF extension. " +
+    "ATSMS requires this feature for key derivation.",
+  );
 }
 
 export async function authenticatePasskey(
