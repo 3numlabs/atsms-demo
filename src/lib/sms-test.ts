@@ -35,7 +35,7 @@ export async function sendSmsReply(convoId: string, text: string): Promise<void>
     salt: crypto.getRandomValues(new Uint8Array(16)),
     convoId: oneShotConvoIdV2([did, t.gatewayDid]),
     fallback: text,
-    extensions: new Map([["smsTo", t.from]]) as MessageContent["extensions"],
+    extensions: new Map<number | string, unknown>([[1, [t.gatewayDid]], ["smsTo", t.from]]) as MessageContent["extensions"],
     body: [textPart(text)],
   });
   const gwCerts = await checkExistingCerts(t.gatewayDid);
