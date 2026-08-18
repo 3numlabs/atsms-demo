@@ -542,7 +542,7 @@ export async function sendMessage(convoId: string, text: string): Promise<void> 
 // ── reads ────────────────────────────────────────────────────────────────────
 
 async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
-  const senderHandle = await resolveHandleFromDid(msg.senderId);
+  let senderHandle = await resolveHandleFromDid(msg.senderId);
   let text = msg.deleted ? "[deleted]" : (textOf(msg.content) ?? "[unsupported message]");
   let sms = false;
   // SMS test surface: surface bridged provenance (flag "sms"). Trust rule per §6a: verified only
@@ -553,6 +553,7 @@ async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
     if (typeof from === "string") {
       rememberSmsThread(msg.convoId, { from, gatewayDid: msg.senderId });
       sms = true; // provenance renders in the thread list/header, not as a text prefix
+      senderHandle = from; // the human truth: this came from a phone number, via the gateway
     }
     if (smsThreads.has(msg.convoId)) sms = true; // own replies too — whole thread is green
   }
@@ -607,7 +608,12 @@ export async function getConversations(): Promise<AppConversation[]> {
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,
       ...(smsThreads.has(convo.id)
-        ? { sms: { from: smsThreads.get(convo.id)!.from, verified: registrars.has(smsThreads.get(convo.id)!.gatewayDid) } }
+        ? {
+            sms: { from: smsThreads.get(convo.id)!.from, verified: registrars.has(smsThreads.get(convo.id)!.gatewayDid) },
+            // number as the thread title everywhere (pane header + list); kind group selects the title branch
+            title: `${smsThreads.get(convo.id)!.from}${registrars.has(smsThreads.get(convo.id)!.gatewayDid) ? "" : " ⚠"}`,
+            kind: "group" as const,
+          }
         : {}),
     });
   }

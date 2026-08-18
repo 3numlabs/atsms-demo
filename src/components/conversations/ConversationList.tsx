@@ -36,11 +36,7 @@ export function ConversationList() {
               {conversations.filter((c) => c.sms).map((convo) => (
                 <ConversationItem
                   key={convo.id}
-                  conversation={{
-                    ...convo,
-                    title: `${convo.sms!.from}${convo.sms!.verified ? "" : " ⚠"}`,
-                    kind: "group", // reuse the title-rendering branch for the number
-                  }}
+                  conversation={convo}
                   isActive={convo.id === activeConvoId}
                   onClick={() => setActive(convo.id)}
                   currentDid={did || ""}

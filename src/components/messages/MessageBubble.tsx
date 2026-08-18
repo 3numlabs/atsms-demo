@@ -66,8 +66,8 @@ export function MessageBubble({
           className={`rounded-lg px-3 py-1.5 text-sm break-words ${
             message.sms
               ? isOwn
-                ? "bg-green-600 text-white"      // SMS left the encrypted world — iMessage green
-                : "bg-green-600/20 text-text-primary"
+                ? "bg-[#34c759] text-white"      // iMessage green: SMS left the encrypted world
+                : "bg-[#34c759]/25 text-text-primary"
               : isOwn
               ? "bg-sent text-white"
               : "bg-surface text-text-primary"
