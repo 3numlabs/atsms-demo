@@ -33,7 +33,7 @@ import { ATSMS_API_URL, EMAIL_DOMAIN, PLC_DIRECTORY_URL } from "./constants";
 import { deriveP256PrivateKeyPEM } from "./passkey-prf";
 import type { AppConversation, AppMessage } from "@/types";
 import { hasFlag } from "./flags";
-import { smsThreads, myRegistrars, sendSmsReply } from "./sms-test";
+import { smsThreads, rememberSmsThread, myRegistrars, sendSmsReply } from "./sms-test";
 
 let atsms: ATSMS | null = null;
 let storage: StorageAdapter | null = null;
@@ -544,16 +544,17 @@ export async function sendMessage(convoId: string, text: string): Promise<void> 
 async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
   const senderHandle = await resolveHandleFromDid(msg.senderId);
   let text = msg.deleted ? "[deleted]" : (textOf(msg.content) ?? "[unsupported message]");
+  let sms = false;
   // SMS test surface: surface bridged provenance (flag "sms"). Trust rule per §6a: verified only
   // when the SEALING DID is a registrar my own consent record names.
   if (hasFlag("sms") && !msg.deleted) {
     const lo = (msg.content.extensions as Map<unknown, unknown> | undefined)?.get?.("legacyOrigin") as Map<string, unknown> | undefined;
     const from = lo?.get?.("from");
     if (typeof from === "string") {
-      smsThreads.set(msg.convoId, { from, gatewayDid: msg.senderId });
-      const verified = (await myRegistrars()).has(msg.senderId);
-      text = `[SMS from ${from}${verified ? "" : " — unverified bridge"}] ${text}`;
+      rememberSmsThread(msg.convoId, { from, gatewayDid: msg.senderId });
+      sms = true; // provenance renders in the thread list/header, not as a text prefix
     }
+    if (smsThreads.has(msg.convoId)) sms = true; // own replies too — whole thread is green
   }
   return {
     id: msg.id,
@@ -563,6 +564,7 @@ async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
     text,
     createdAt: msg.createdAt,
     status: "sent",
+    sms,
   };
 }
 
@@ -577,6 +579,7 @@ export async function getConversations(): Promise<AppConversation[]> {
 
   const convos = await storage.getConversations();
   const appConvos: AppConversation[] = [];
+  const registrars = hasFlag("sms") ? await myRegistrars() : new Set<string>();
 
   for (const convo of convos) {
     const handles: string[] = [];
@@ -603,6 +606,9 @@ export async function getConversations(): Promise<AppConversation[]> {
       lastMessage: lastMsgText,
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,
+      ...(smsThreads.has(convo.id)
+        ? { sms: { from: smsThreads.get(convo.id)!.from, verified: registrars.has(smsThreads.get(convo.id)!.gatewayDid) } }
+        : {}),
     });
   }
 

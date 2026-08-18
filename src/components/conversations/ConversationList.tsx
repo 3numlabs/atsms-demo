@@ -19,7 +19,7 @@ export function ConversationList() {
         <EmptyState />
       ) : (
         <div className="py-1">
-          {conversations.map((convo) => (
+          {conversations.filter((c) => !c.sms).map((convo) => (
             <ConversationItem
               key={convo.id}
               conversation={convo}
@@ -28,6 +28,26 @@ export function ConversationList() {
               currentDid={did || ""}
             />
           ))}
+          {conversations.some((c) => c.sms) && (
+            <>
+              <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-text-secondary">
+                SMS
+              </div>
+              {conversations.filter((c) => c.sms).map((convo) => (
+                <ConversationItem
+                  key={convo.id}
+                  conversation={{
+                    ...convo,
+                    title: `${convo.sms!.from}${convo.sms!.verified ? "" : " ⚠"}`,
+                    kind: "group", // reuse the title-rendering branch for the number
+                  }}
+                  isActive={convo.id === activeConvoId}
+                  onClick={() => setActive(convo.id)}
+                  currentDid={did || ""}
+                />
+              ))}
+            </>
+          )}
         </div>
       )}
       <NewConversation

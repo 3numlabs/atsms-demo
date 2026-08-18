@@ -64,7 +64,11 @@ export function MessageBubble({
         )}
         <div
           className={`rounded-lg px-3 py-1.5 text-sm break-words ${
-            isOwn
+            message.sms
+              ? isOwn
+                ? "bg-green-600 text-white"      // SMS left the encrypted world — iMessage green
+                : "bg-green-600/20 text-text-primary"
+              : isOwn
               ? "bg-sent text-white"
               : "bg-surface text-text-primary"
           } ${message.status === "sending" ? "opacity-60" : ""} ${message.status === "failed" ? "opacity-60" : ""} transition-opacity duration-150`}

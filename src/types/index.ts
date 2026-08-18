@@ -14,9 +14,13 @@ export interface AppConversation {
   lastMessage?: string;
   lastMessageAt?: Date;
   unreadCount: number;
+  /** SMS test surface (flag "sms"): bridged-SMS thread — from number + §6a verification. */
+  sms?: { from: string; verified: boolean };
 }
 
 export interface AppMessage {
+  /** Bridged SMS (green bubble). */
+  sms?: boolean;
   id: string;
   convoId: string;
   senderId: string;

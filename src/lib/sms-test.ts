@@ -5,8 +5,15 @@ import {
 } from "@atsms/client";
 import { getEndpointCert, getCurrentDid, resolvePDS, checkExistingCerts } from "./atsms-bridge";
 
-/** convoId -> { from, gatewayDid } learned from received legacyOrigin messages (session memory). */
-export const smsThreads = new Map<string, { from: string; gatewayDid: string }>();
+/** convoId -> { from, gatewayDid } learned from received legacyOrigin messages. Persisted so the
+ *  SMS section renders on reload before any message bodies have been re-read. */
+export const smsThreads = new Map<string, { from: string; gatewayDid: string }>(
+  JSON.parse(localStorage.getItem("atsms_sms_threads") ?? "[]"),
+);
+export function rememberSmsThread(convoId: string, t: { from: string; gatewayDid: string }): void {
+  smsThreads.set(convoId, t);
+  localStorage.setItem("atsms_sms_threads", JSON.stringify([...smsThreads]));
+}
 
 let registrars: Set<string> | null = null;
 /** Registrar DIDs from MY OWN at.atsms.e164 consent records — the §6a trust anchors. */
