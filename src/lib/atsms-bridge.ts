@@ -32,6 +32,8 @@ import {
 import { ATSMS_API_URL, EMAIL_DOMAIN, PLC_DIRECTORY_URL } from "./constants";
 import { deriveP256PrivateKeyPEM } from "./passkey-prf";
 import type { AppConversation, AppMessage } from "@/types";
+import { hasFlag } from "./flags";
+import { smsThreads, myRegistrars, sendSmsReply } from "./sms-test";
 
 let atsms: ATSMS | null = null;
 let storage: StorageAdapter | null = null;
@@ -524,6 +526,11 @@ export async function sendMessage(convoId: string, text: string): Promise<void> 
     return;
   }
 
+  // SMS test surface: a reply in a bridged-SMS thread routes through the gateway (§7e).
+  if (hasFlag("sms") && smsThreads.has(convoId)) {
+    await sendSmsReply(convoId, text);
+    return;
+  }
   // One-shot notice thread: recipients come from the pinned record.
   const record = await storage.getConversation(convoId);
   if (record === null) throw new Error("Unknown conversation");
@@ -536,7 +543,18 @@ export async function sendMessage(convoId: string, text: string): Promise<void> 
 
 async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
   const senderHandle = await resolveHandleFromDid(msg.senderId);
-  const text = msg.deleted ? "[deleted]" : (textOf(msg.content) ?? "[unsupported message]");
+  let text = msg.deleted ? "[deleted]" : (textOf(msg.content) ?? "[unsupported message]");
+  // SMS test surface: surface bridged provenance (flag "sms"). Trust rule per §6a: verified only
+  // when the SEALING DID is a registrar my own consent record names.
+  if (hasFlag("sms") && !msg.deleted) {
+    const lo = (msg.content.extensions as Map<unknown, unknown> | undefined)?.get?.("legacyOrigin") as Map<string, unknown> | undefined;
+    const from = lo?.get?.("from");
+    if (typeof from === "string") {
+      smsThreads.set(msg.convoId, { from, gatewayDid: msg.senderId });
+      const verified = (await myRegistrars()).has(msg.senderId);
+      text = `[SMS from ${from}${verified ? "" : " — unverified bridge"}] ${text}`;
+    }
+  }
   return {
     id: msg.id,
     convoId: msg.convoId,
