@@ -557,7 +557,7 @@ async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
       const tid = smsThreadId(msg.convoId, topicId);
       const recipient = lo?.get?.("recipient");
       rememberSmsThread(tid, {
-        from, gatewayDid: msg.senderId,
+        from, registrarDid: msg.senderId,
         ...(typeof recipient === "string" ? { recipient } : {}),
         ...(topicId && topicId.length ? { topicHex: [...topicId].map((b) => b.toString(16).padStart(2, "0")).join("") } : {}),
       });
@@ -602,7 +602,7 @@ export async function getConversations(): Promise<AppConversation[]> {
       const verified = await verifySmsThread(t);
       appConvos.push({
         id: tid,
-        participantDids: [t.gatewayDid],
+        participantDids: [t.registrarDid],
         participantHandles: [t.from],
         title: `${t.from}${verified ? "" : " ⚠"}`,
         kind: "group",

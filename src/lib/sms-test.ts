@@ -17,12 +17,12 @@ export function isSmsThreadId(id: string): boolean { return id.includes("|") || 
 export function baseConvoId(id: string): string { return id.split("|")[0]!; }
 
 /** threadId -> thread state, persisted so the SMS section renders on reload. */
-export const smsThreads = new Map<string, { from: string; gatewayDid: string; recipient?: string; topicHex?: string }>(
-  JSON.parse(localStorage.getItem("atsms_sms_threads_v2") ?? "[]"),
+export const smsThreads = new Map<string, { from: string; registrarDid: string; recipient?: string; topicHex?: string }>(
+  JSON.parse(localStorage.getItem("atsms_sms_threads_v3") ?? "[]"),
 );
-export function rememberSmsThread(id: string, t: { from: string; gatewayDid: string; recipient?: string; topicHex?: string }): void {
+export function rememberSmsThread(id: string, t: { from: string; registrarDid: string; recipient?: string; topicHex?: string }): void {
   smsThreads.set(id, t);
-  localStorage.setItem("atsms_sms_threads_v2", JSON.stringify([...smsThreads]));
+  localStorage.setItem("atsms_sms_threads_v3", JSON.stringify([...smsThreads]));
 }
 
 // ── Verification (§6a amended): sealer == registrar OF THE RECEIVING NUMBER + gateway-role cert ──
@@ -58,10 +58,10 @@ async function hasGatewayRoleCert(did: string): Promise<boolean> {
 }
 
 /** Per-number + role verification for one SMS thread. Falls back to unverified on any gap. */
-export async function verifySmsThread(t: { gatewayDid: string; recipient?: string }): Promise<boolean> {
+export async function verifySmsThread(t: { registrarDid: string; recipient?: string }): Promise<boolean> {
   if (!t.recipient) return false;
   const reg = await registrarOf(t.recipient);
-  return reg === t.gatewayDid && (await hasGatewayRoleCert(t.gatewayDid));
+  return reg === t.registrarDid && (await hasGatewayRoleCert(t.registrarDid));
 }
 
 /** Reply to a bridged SMS: sealed one-shot to the gateway's DID, smsTo extension (§7e). */
@@ -75,18 +75,18 @@ export async function sendSmsReply(threadId: string, text: string): Promise<void
     : null;
   const content: MessageContent = createContent({
     salt: crypto.getRandomValues(new Uint8Array(16)),
-    convoId: oneShotConvoIdV2([did, t.gatewayDid]),
+    convoId: oneShotConvoIdV2([did, t.registrarDid]),
     ...(topicId ? { topicId } : {}),
     fallback: text,
-    extensions: new Map<number | string, unknown>([[1, [t.gatewayDid]], ["smsTo", t.from]]) as MessageContent["extensions"],
+    extensions: new Map<number | string, unknown>([[1, [t.registrarDid]], ["smsTo", t.from]]) as MessageContent["extensions"],
     body: [textPart(text)],
   });
-  const gwCerts = await checkExistingCerts(t.gatewayDid);
+  const gwCerts = await checkExistingCerts(t.registrarDid);
   if (!gwCerts.length) throw new Error("gateway has no published certs");
   const envelope = await sealOneShot(encodeContent(content), cert, gwCerts);
   // Gateway's inbox from its own record (its /inbox endpoint on the messaging worker).
-  const pds = await resolvePDS(t.gatewayDid);
-  const rec = await (await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(t.gatewayDid)}&collection=at.atsms.inbox&rkey=self`)).json();
+  const pds = await resolvePDS(t.registrarDid);
+  const rec = await (await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(t.registrarDid)}&collection=at.atsms.inbox&rkey=self`)).json();
   const inbox = (rec?.value?.endpoints ?? []).find((e: any) => e?.uri?.startsWith("https:"))?.uri;
   if (!inbox) throw new Error("gateway publishes no https inbox — outbound not enabled yet");
   let b64 = "";
