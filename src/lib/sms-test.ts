@@ -1,46 +1,82 @@
 // SMS test surface (flag "sms"): render bridged-SMS provenance and reply through the gateway.
-// Design: umbrella docs/plans/agent-config-and-screening.md §6a/§7e. Test-grade by intent.
+// Design: umbrella docs/plans/agent-config-and-screening.md §6a/§7d, amended by
+// gateway-identity-and-transport.md — one registrar identity, gateway-role certs, per-number
+// verification, per-topic threading. Test-grade by intent.
 import {
   createContent, encodeContent, oneShotConvoIdV2, sealOneShot, textPart, type MessageContent,
 } from "@atsms/client";
 import { getEndpointCert, getCurrentDid, resolvePDS, checkExistingCerts } from "./atsms-bridge";
 
-/** convoId -> { from, gatewayDid } learned from received legacyOrigin messages. Persisted so the
- *  SMS section renders on reload before any message bodies have been re-read. */
-export const smsThreads = new Map<string, { from: string; gatewayDid: string }>(
-  JSON.parse(localStorage.getItem("atsms_sms_threads") ?? "[]"),
+/** Synthetic thread id: base one-shot convoId + the topic (per number / group set — §3 of the
+ *  decision note). Old entries without a topic keep the bare convoId. */
+export function smsThreadId(convoId: string, topicId?: Uint8Array | null): string {
+  if (!topicId || topicId.length === 0) return convoId;
+  return `${convoId}|${[...topicId].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+export function isSmsThreadId(id: string): boolean { return id.includes("|") || smsThreads.has(id); }
+export function baseConvoId(id: string): string { return id.split("|")[0]!; }
+
+/** threadId -> thread state, persisted so the SMS section renders on reload. */
+export const smsThreads = new Map<string, { from: string; gatewayDid: string; recipient?: string; topicHex?: string }>(
+  JSON.parse(localStorage.getItem("atsms_sms_threads_v2") ?? "[]"),
 );
-export function rememberSmsThread(convoId: string, t: { from: string; gatewayDid: string }): void {
-  smsThreads.set(convoId, t);
-  localStorage.setItem("atsms_sms_threads", JSON.stringify([...smsThreads]));
+export function rememberSmsThread(id: string, t: { from: string; gatewayDid: string; recipient?: string; topicHex?: string }): void {
+  smsThreads.set(id, t);
+  localStorage.setItem("atsms_sms_threads_v2", JSON.stringify([...smsThreads]));
 }
 
-let registrars: Set<string> | null = null;
-/** Registrar DIDs from MY OWN at.atsms.e164 consent records — the §6a trust anchors. */
-export async function myRegistrars(): Promise<Set<string>> {
-  if (registrars) return registrars;
-  registrars = new Set();
+// ── Verification (§6a amended): sealer == registrar OF THE RECEIVING NUMBER + gateway-role cert ──
+const registrarByNumber = new Map<string, string | null>();
+async function registrarOf(recipient: string): Promise<string | null> {
+  if (registrarByNumber.has(recipient)) return registrarByNumber.get(recipient)!;
+  let out: string | null = null;
   const did = getCurrentDid();
-  if (!did) return registrars;
+  if (did) {
+    try {
+      const pds = await resolvePDS(did);
+      const rkey = recipient.replace(/^\+/, "");
+      const res = await fetch(`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=at.atsms.e164&rkey=${rkey}`);
+      if (res.ok) out = ((await res.json()) as any)?.value?.registrar ?? null;
+    } catch { /* unverified */ }
+  }
+  registrarByNumber.set(recipient, out);
+  return out;
+}
+
+const roleByDid = new Map<string, boolean>();
+/** APPROXIMATION (documented in the decision note follow-ups): checks the sealer DID has at least
+ *  one published gateway-role cert — the exact per-envelope check needs the lib to surface the
+ *  sealing cert on stored messages. Combined with the machine-only policy the delta is small. */
+async function hasGatewayRoleCert(did: string): Promise<boolean> {
+  if (roleByDid.has(did)) return roleByDid.get(did)!;
+  let out = false;
   try {
-    const pds = await resolvePDS(did);
-    const res = await fetch(`${pds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=at.atsms.e164&limit=25`);
-    for (const r of ((await res.json())?.records ?? [])) {
-      if (r?.value?.registrar) registrars.add(r.value.registrar);
-    }
-  } catch { /* no consent records -> nothing verifies */ }
-  return registrars;
+    out = (await checkExistingCerts(did)).some((c) => c.hasGatewayRole());
+  } catch { /* unverified */ }
+  roleByDid.set(did, out);
+  return out;
+}
+
+/** Per-number + role verification for one SMS thread. Falls back to unverified on any gap. */
+export async function verifySmsThread(t: { gatewayDid: string; recipient?: string }): Promise<boolean> {
+  if (!t.recipient) return false;
+  const reg = await registrarOf(t.recipient);
+  return reg === t.gatewayDid && (await hasGatewayRoleCert(t.gatewayDid));
 }
 
 /** Reply to a bridged SMS: sealed one-shot to the gateway's DID, smsTo extension (§7e). */
-export async function sendSmsReply(convoId: string, text: string): Promise<void> {
-  const t = smsThreads.get(convoId);
+export async function sendSmsReply(threadId: string, text: string): Promise<void> {
+  const t = smsThreads.get(threadId);
   const cert = getEndpointCert();
   const did = getCurrentDid();
   if (!t || !cert || !did) throw new Error("SMS thread state missing");
+  const topicId = t.topicHex
+    ? new Uint8Array(t.topicHex.match(/../g)!.map((h) => parseInt(h, 16)))
+    : null;
   const content: MessageContent = createContent({
     salt: crypto.getRandomValues(new Uint8Array(16)),
     convoId: oneShotConvoIdV2([did, t.gatewayDid]),
+    ...(topicId ? { topicId } : {}),
     fallback: text,
     extensions: new Map<number | string, unknown>([[1, [t.gatewayDid]], ["smsTo", t.from]]) as MessageContent["extensions"],
     body: [textPart(text)],

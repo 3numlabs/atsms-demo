@@ -33,7 +33,7 @@ import { ATSMS_API_URL, EMAIL_DOMAIN, PLC_DIRECTORY_URL } from "./constants";
 import { deriveP256PrivateKeyPEM } from "./passkey-prf";
 import type { AppConversation, AppMessage } from "@/types";
 import { hasFlag } from "./flags";
-import { smsThreads, rememberSmsThread, myRegistrars, sendSmsReply } from "./sms-test";
+import { smsThreads, rememberSmsThread, sendSmsReply, smsThreadId, isSmsThreadId, baseConvoId, verifySmsThread } from "./sms-test";
 
 let atsms: ATSMS | null = null;
 let storage: StorageAdapter | null = null;
@@ -547,19 +547,32 @@ async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
   let sms = false;
   // SMS test surface: surface bridged provenance (flag "sms"). Trust rule per §6a: verified only
   // when the SEALING DID is a registrar my own consent record names.
+  let outConvoId = msg.convoId;
   if (hasFlag("sms") && !msg.deleted) {
-    const lo = (msg.content.extensions as Map<unknown, unknown> | undefined)?.get?.("legacyOrigin") as Map<string, unknown> | undefined;
+    const ext = msg.content.extensions as Map<unknown, unknown> | undefined;
+    const lo = ext?.get?.("legacyOrigin") as Map<string, unknown> | undefined;
     const from = lo?.get?.("from");
+    const topicId = msg.content.topicId as Uint8Array | null | undefined;
     if (typeof from === "string") {
-      rememberSmsThread(msg.convoId, { from, gatewayDid: msg.senderId });
-      sms = true; // provenance renders in the thread list/header, not as a text prefix
+      const tid = smsThreadId(msg.convoId, topicId);
+      const recipient = lo?.get?.("recipient");
+      rememberSmsThread(tid, {
+        from, gatewayDid: msg.senderId,
+        ...(typeof recipient === "string" ? { recipient } : {}),
+        ...(topicId && topicId.length ? { topicHex: [...topicId].map((b) => b.toString(16).padStart(2, "0")).join("") } : {}),
+      });
+      sms = true;
       senderHandle = from; // the human truth: this came from a phone number, via the gateway
+      outConvoId = tid;    // route to the per-number thread, not the shared base convo
+    } else if (ext?.get?.("smsTo") !== undefined) {
+      // Own outbound reply: thread by its topic too.
+      sms = true;
+      outConvoId = smsThreadId(msg.convoId, topicId);
     }
-    if (smsThreads.has(msg.convoId)) sms = true; // own replies too — whole thread is green
   }
   return {
     id: msg.id,
-    convoId: msg.convoId,
+    convoId: outConvoId,
     senderId: msg.senderId,
     senderHandle,
     text,
@@ -571,8 +584,11 @@ async function toAppMessage(msg: LocalMessage): Promise<AppMessage> {
 
 export async function getConversationMessages(convoId: string): Promise<AppMessage[]> {
   if (!storage) return [];
-  const messages = transcriptMessages(await storage.getMessages(convoId, 200));
-  return Promise.all(messages.map(toAppMessage));
+  const base = isSmsThreadId(convoId) ? baseConvoId(convoId) : convoId;
+  const messages = transcriptMessages(await storage.getMessages(base, 200));
+  const app = await Promise.all(messages.map(toAppMessage));
+  // Per-topic threads see only their topic; the base convo keeps the rest (help chat, notices).
+  return app.filter((m) => (base === convoId ? m.convoId === convoId : m.convoId === convoId));
 }
 
 export async function getConversations(): Promise<AppConversation[]> {
@@ -580,7 +596,21 @@ export async function getConversations(): Promise<AppConversation[]> {
 
   const convos = await storage.getConversations();
   const appConvos: AppConversation[] = [];
-  const registrars = hasFlag("sms") ? await myRegistrars() : new Set<string>();
+
+  if (hasFlag("sms")) {
+    for (const [tid, t] of smsThreads) {
+      const verified = await verifySmsThread(t);
+      appConvos.push({
+        id: tid,
+        participantDids: [t.gatewayDid],
+        participantHandles: [t.from],
+        title: `${t.from}${verified ? "" : " ⚠"}`,
+        kind: "group",
+        unreadCount: 0,
+        sms: { from: t.from, verified },
+      });
+    }
+  }
 
   for (const convo of convos) {
     const handles: string[] = [];
@@ -607,14 +637,6 @@ export async function getConversations(): Promise<AppConversation[]> {
       lastMessage: lastMsgText,
       lastMessageAt: convo.lastMessageAt,
       unreadCount: convo.unreadCount,
-      ...(smsThreads.has(convo.id)
-        ? {
-            sms: { from: smsThreads.get(convo.id)!.from, verified: registrars.has(smsThreads.get(convo.id)!.gatewayDid) },
-            // number as the thread title everywhere (pane header + list); kind group selects the title branch
-            title: `${smsThreads.get(convo.id)!.from}${registrars.has(smsThreads.get(convo.id)!.gatewayDid) ? "" : " ⚠"}`,
-            kind: "group" as const,
-          }
-        : {}),
     });
   }
 
