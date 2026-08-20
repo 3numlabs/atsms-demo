@@ -613,6 +613,10 @@ export async function getConversations(): Promise<AppConversation[]> {
   }
 
   for (const convo of convos) {
+    // A base convo whose traffic is SMS-topical renders as its per-number threads (above); listing
+    // it too duplicates the thread under the registrar's handle with the SMS text as summary.
+    // Revisit when the registrar sends non-SMS traffic (help chat / notices) into the same convo.
+    if (hasFlag("sms") && [...smsThreads.keys()].some((k) => baseConvoId(k) === convo.id)) continue;
     const handles: string[] = [];
     for (const did of convo.participantIds) {
       handles.push(await resolveHandleFromDid(did));
