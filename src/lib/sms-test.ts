@@ -65,7 +65,7 @@ export async function verifySmsThread(t: { registrarDid: string; recipient?: str
 }
 
 /** Reply to a bridged SMS: sealed one-shot to the gateway's DID, smsTo extension (§7e). */
-export async function sendSmsReply(threadId: string, text: string): Promise<void> {
+export async function sendSmsReply(threadId: string, text: string): Promise<{ content: MessageContent; senderDid: string }> {
   const t = smsThreads.get(threadId);
   const cert = getEndpointCert();
   const did = getCurrentDid();
@@ -93,4 +93,5 @@ export async function sendSmsReply(threadId: string, text: string): Promise<void
   for (let i = 0; i < envelope.length; i += 8192) b64 += String.fromCharCode(...envelope.subarray(i, i + 8192));
   const res = await fetch(inbox, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ envelope: btoa(b64) }) });
   if (!res.ok) throw new Error(`SMS send failed ${res.status}: ${(await res.text()).slice(0, 140)}`);
+  return { content, senderDid: did };
 }

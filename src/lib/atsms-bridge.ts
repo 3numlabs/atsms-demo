@@ -10,6 +10,8 @@
 
 import {
   Agent,
+  deriveMessageId,
+  encodeContent,
   ATSMS,
   ATSMSDeviceIdentity,
   ATSMSEndpointCertificate,
@@ -528,7 +530,21 @@ export async function sendMessage(convoId: string, text: string): Promise<void> 
 
   // SMS test surface: a reply in a bridged-SMS thread routes through the gateway (§7e).
   if (hasFlag("sms") && smsThreads.has(convoId)) {
-    await sendSmsReply(convoId, text);
+    const { content, senderDid } = await sendSmsReply(convoId, text);
+    // Persist locally — the send bypasses the client's own send path, so without this the
+    // optimistic UI entry vanishes on the next store emission (and the reply never survives
+    // reload). Same derived id + base convo the receive path uses.
+    const contentBytes = encodeContent(content);
+    const id = [...deriveMessageId(senderDid, content, contentBytes)]
+      .map((b) => b.toString(16).padStart(2, "0")).join("");
+    await storage.saveMessage({
+      id,
+      convoId: baseConvoId(convoId),
+      senderId: senderDid,
+      createdAt: new Date(content.createdAt),
+      isInvitation: false,
+      content,
+    });
     return;
   }
   // One-shot notice thread: recipients come from the pinned record.
