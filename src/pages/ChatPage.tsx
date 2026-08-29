@@ -12,6 +12,7 @@ import {
 } from "@/lib/atsms-bridge";
 import { useSystemEventStore } from "@/stores/system-event-store";
 import { inboundCallSignals } from "@/lib/webrtc-signaling";
+import { registerGatewayCall } from "@/lib/call-oneshot";
 import { handleSignalingMessage } from "@/lib/webrtc-manager";
 import { CallOverlay } from "@/components/call/CallOverlay";
 import { IncomingCallModal } from "@/components/call/IncomingCallModal";
@@ -27,10 +28,16 @@ export function ChatPage() {
 
     let mounted = true;
 
-    // Ephemeral call signaling (never persisted — format §8) → the call layer.
+    // Ephemeral call signaling (never persisted — format §8) → the call layer. Two sources:
+    // a DCGKA `call` part from a peer, or a one-shot from the legacy-call gateway bridge — the
+    // latter carries a `callReplyTo` extension telling us where to seal the answer back.
     setSignalHandler((content, senderDid) => {
-      for (const signal of inboundCallSignals(content, senderDid)) {
-        void handleSignalingMessage(signal);
+      const replyTo = content.extensions?.get("callReplyTo");
+      for (const inbound of inboundCallSignals(content, senderDid)) {
+        if (typeof replyTo === "string") {
+          registerGatewayCall(inbound.signal.callId, { toDid: senderDid, replyTo, convoId: inbound.convoId });
+        }
+        void handleSignalingMessage(inbound);
       }
     });
 

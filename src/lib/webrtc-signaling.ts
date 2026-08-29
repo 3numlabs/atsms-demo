@@ -7,8 +7,14 @@
 
 import { callPart, type CallSignal, convoIdToHex, KIND_CALL, type MessageContent } from "@atsms/client";
 import { getAtsms } from "./atsms-bridge";
+import { getGatewayCall, sealCallReply } from "./call-oneshot";
 
 export async function sendWebRTCSignal(convoId: string, signal: CallSignal): Promise<void> {
+  // A call that rang in over a one-shot (the legacy-call gateway bridge) has no DCGKA session —
+  // seal the answer/ICE/hangup back to the bridge's answer-inbox instead of sending over a convo.
+  const gw = getGatewayCall(signal.callId);
+  if (gw) return sealCallReply(gw, signal);
+
   const atsms = getAtsms();
   if (!atsms) throw new Error("Not initialized");
   const convo = await atsms.conversations.get(convoId);
